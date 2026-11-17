@@ -13,7 +13,7 @@ function LoginForm() {
   const [demo, setDemo] = useState<boolean | null>(null); // base en mode démo (pas de mot de passe)
   const [oneClick, setOneClick] = useState(false); // connexion en un clic disponible
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ email: "", password: "", fullName: "", orgName: "" });
+  const [form, setForm] = useState({ email: "", password: "", fullName: "" });
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -108,12 +108,7 @@ function LoginForm() {
       <Card>
         <form onSubmit={submit} className="space-y-4" noValidate>
           {mode === "signup" && (
-            <>
-              <Field label="Nom complet"><input className={inputCls} value={form.fullName} onChange={set("fullName")} /></Field>
-              <Field label="Entreprise" hint="Laissez vide si vous avez reçu une invitation.">
-                <input className={inputCls} value={form.orgName} onChange={set("orgName")} />
-              </Field>
-            </>
+            <Field label="Nom complet"><input className={inputCls} value={form.fullName} onChange={set("fullName")} /></Field>
           )}
           <Field label="E-mail"><input type="email" autoComplete="email" className={inputCls} value={form.email} onChange={set("email")} /></Field>
           {!demo && (

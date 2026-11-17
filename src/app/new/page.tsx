@@ -2,22 +2,24 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/client";
-import { Private, useSession } from "@/components/Session";
+import { Private } from "@/components/Session";
 import { FileImport, type ImportedTable } from "@/components/FileImport";
 import { Card, ErrorText, Field, inputCls } from "@/components/ui";
 import { missingRequired, toCircanaRows } from "@/lib/tabular";
-import type { SiteRow, Zone } from "@/lib/types";
+import type { Zone } from "@/lib/types";
+import type { Site } from "@/lib/sites";
+
+const MAX_PRODUCTS = 300;
 
 const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
 
 function NewAnalysis() {
   const router = useRouter();
-  const { me } = useSession();
   const [name, setName] = useState("");
   const [category, setCategory] = useState("");
   const [circana, setCircana] = useState<ImportedTable | null>(null);
   const [catalog, setCatalog] = useState<ImportedTable | null>(null);
-  const [sites, setSites] = useState<SiteRow[]>([]);
+  const [sites, setSites] = useState<Site[]>([]);
   const [zones, setZones] = useState<Zone[]>(["US", "EU"]);
   const [siteIds, setSiteIds] = useState<string[]>([]);
   const [excluded, setExcluded] = useState<string[]>([]);
@@ -25,9 +27,12 @@ function NewAnalysis() {
   const [focusOnly, setFocusOnly] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [savedCatalog, setSavedCatalog] = useState(0);
+  const [useSaved, setUseSaved] = useState(true);
 
   useEffect(() => {
-    api<{ sites: SiteRow[] }>("/api/sites").then((r) => setSites(r.sites.filter((s) => !["blocked", "requested"].includes(s.status))));
+    api<{ sites: Site[] }>("/api/sites").then((r) => setSites(r.sites.filter((s) => s.method !== "blocked")));
+    api<{ products: unknown[] }>("/api/catalog").then((r) => setSavedCatalog(r.products.length)).catch(() => null);
   }, []);
 
   const rows = useMemo(() => (circana ? toCircanaRows(circana.rows, circana.mapping) : []), [circana]);
@@ -39,7 +44,7 @@ function NewAnalysis() {
       .filter((r) => zones.includes(r.zone) && !ex.has(norm(r.brand)))
       .filter((r) => !focusOnly || !terms.length || terms.some((t) => norm(`${r.brand} ${r.product}`).includes(t)));
   }, [rows, zones, excluded, focus, focusOnly]);
-  const max = me!.plan.productsPerAnalysis;
+  const max = MAX_PRODUCTS;
   const zoneSites = sites.filter((s) => zones.includes(s.zone));
 
   const toggle = <T,>(list: T[], v: T) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
@@ -64,9 +69,10 @@ function NewAnalysis() {
         json: {
           name,
           category,
-          params: { zones, siteIds: siteIds.filter((id) => zoneSites.some((s) => s.id === id)), excludedBrands: excluded, focus, focusOnly },
-          circana: { rows: circana.rows, mapping: circana.mapping },
-          ...(catalog ? { catalog: { rows: catalog.rows, mapping: catalog.mapping } } : {}),
+          params: { zones, siteIds: siteIds.filter((d) => zoneSites.some((s) => s.domain === d)), excludedBrands: excluded, focus, focusOnly },
+          circana: { rows: circana.rows, mapping: circana.mapping, fileName: circana.fileName, storagePath: circana.storagePath ?? null },
+          ...(catalog ? { catalog: { rows: catalog.rows, mapping: catalog.mapping, fileName: catalog.fileName } } : {}),
+          useSavedCatalog: !catalog && useSaved && savedCatalog > 0,
         },
       });
       router.push(`/reports/${res.id}`);
@@ -114,6 +120,12 @@ function NewAnalysis() {
           onChange={setCatalog}
           sampleUrl="/exemple-catalogue.csv"
         />
+        {!catalog && savedCatalog > 0 && (
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={useSaved} onChange={(e) => setUseSaved(e.target.checked)} />
+            Comparer avec le catalogue déjà enregistré ({savedCatalog} produits)
+          </label>
+        )}
       </div>
 
       <Card>
@@ -137,8 +149,8 @@ function NewAnalysis() {
               <p className="text-xs text-ink-soft">Aucun coché = tous les sites actifs des zones choisies.</p>
               <div className="mt-2 grid gap-1.5 text-sm sm:grid-cols-2">
                 {zoneSites.map((s) => (
-                  <label key={s.id} className="flex items-center gap-2">
-                    <input type="checkbox" checked={siteIds.includes(s.id)} onChange={() => setSiteIds(toggle(siteIds, s.id))} />
+                  <label key={s.domain} className="flex items-center gap-2">
+                    <input type="checkbox" checked={siteIds.includes(s.domain)} onChange={() => setSiteIds(toggle(siteIds, s.domain))} />
                     {s.name} <span className="text-xs text-ink-soft">{s.zone}</span>
                   </label>
                 ))}
@@ -185,8 +197,8 @@ function NewAnalysis() {
           {circana ? (
             <>
               <strong>{Math.min(kept.length, max)}</strong> produits seront analysés
-              {kept.length > max && <span className="text-amber"> (limite de {max} de votre offre)</span>}
-              {catalog && <> · {catalog.rows.length} produits de votre catalogue à comparer</>}
+              {kept.length > max && <span className="text-amber"> (limite de {max} produits par analyse)</span>}
+              {catalog ? <> · {catalog.rows.length} produits de votre catalogue à comparer</> : useSaved && savedCatalog > 0 ? <> · catalogue enregistré ({savedCatalog} produits) à comparer</> : null}
             </>
           ) : (
             "Importez le fichier Circana pour commencer."

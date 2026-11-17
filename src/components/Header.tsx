@@ -36,7 +36,7 @@ export function Header() {
   const links = me
     ? [
         { href: "/", label: "Rapports" },
-        { href: "/catalogue", label: "Sites" },
+        { href: "/catalogue", label: "Catalogues" },
         { href: "/account", label: "Compte" },
         ...(me.user.isStaff ? [{ href: "/admin", label: "Administration" }] : []),
       ]

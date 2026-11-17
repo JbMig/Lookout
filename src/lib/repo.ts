@@ -7,21 +7,25 @@ import { config, isDemo } from "./config";
 
 /**
  * Couche de données générique, identique pour Supabase et pour le stockage local
- * du mode démo. Le serveur utilise la clé service_role : l'isolation entre
- * organisations est appliquée dans le code (chaque requête filtre par org_id),
- * et doublée par les règles RLS côté Supabase (voir supabase/schema.sql).
+ * du mode démo. Le serveur utilise la clé service_role ; aucune clé Supabase
+ * n'est envoyée au navigateur.
  */
 
+/** Tables du projet Supabase utilisées par l'application (schéma existant). */
 export type Table =
-  | "organizations"
   | "profiles"
-  | "memberships"
-  | "invitations"
-  | "sites"
   | "reports"
-  | "report_items"
-  | "client_products"
-  | "agent_runs";
+  | "market_products"
+  | "market_shades"
+  | "market_ingredients"
+  | "enrichment_jobs"
+  | "circana_imports"
+  | "circana_sales"
+  | "catalog_products"
+  | "analyses"
+  | "growth_opportunities"
+  | "trend_posts"
+  | "trend_signals";
 
 type Row = Record<string, unknown> & { id: string };
 
@@ -40,6 +44,7 @@ export interface Repo {
   update(table: Table, id: string, patch: Record<string, unknown>): Promise<void>;
   updateWhere(table: Table, eq: Record<string, unknown>, patch: Record<string, unknown>): Promise<void>;
   remove(table: Table, id: string): Promise<void>;
+  removeWhere(table: Table, eq: Record<string, unknown>): Promise<void>;
 }
 
 /* ---------------- Supabase ---------------- */
@@ -85,6 +90,12 @@ class SupabaseRepo implements Repo {
     const { error } = await this.sb.from(table).delete().eq("id", id);
     if (error) throw new Error(`${table}: ${error.message}`);
   }
+  async removeWhere(table: Table, eq: Record<string, unknown>) {
+    let req = this.sb.from(table).delete();
+    for (const [k, v] of Object.entries(eq)) req = req.eq(k, v as string);
+    const { error } = await req;
+    if (error) throw new Error(`${table}: ${error.message}`);
+  }
 }
 
 /* ---------------- Fichier local (mode démo) ---------------- */
@@ -120,15 +131,23 @@ function matches(r: Row, q: Query) {
   return true;
 }
 
+/** Valeurs par défaut du schéma Supabase, reproduites pour le mode démo. */
 const DEFAULTS: Partial<Record<Table, Record<string, unknown>>> = {
-  organizations: { plan: "trial" },
-  memberships: { role: "analyst" },
-  invitations: { role: "analyst", accepted_at: null },
-  sites: { status: "untested", categories: [], cu_instructions: null, notes: null, requested_by_org: null, last_success_at: null, country: "", type: "revendeur" },
-  reports: { status: "collecting", stats: null, analysis: null, trends: null, catalog: null, share_token: null, error: null, category: "" },
-  report_items: { status: "pending", method: null, site_domain: null, session_id: null, product: null, error: null },
-  client_products: { match_item_id: null, match_score: null },
-  agent_runs: { ok: true, org_id: null, report_id: null },
+  profiles: { full_name: null, avatar_url: null },
+  reports: { type: "dashboard", status: "draft", config: {}, data: {}, analysis_ids: [], share_slug: null, error_message: null, created_by: null },
+  market_products: {
+    category: null, subcategory: null, format: null, texture: null, country: null, locale: null, currency: null,
+    price: null, list_price: null, shade_count: null, packshot_url: null, description: null, status: "discovered",
+    raw_data: {}, enriched_at: null,
+  },
+  market_shades: { shade_code: null, hex_code: null, family: null, is_bestseller: false, image_url: null, position: null },
+  market_ingredients: { function: null, is_key_ingredient: false, position: null },
+  enrichment_jobs: { source: null, status: "queued", attempts: 0, error_message: null, started_at: null, finished_at: null },
+  circana_imports: { storage_path: null, status: "pending", period_start: null, period_end: null, row_count: 0, error_message: null, created_by: null },
+  circana_sales: { retailer: null, channel: null, country: null, region: null, brand: null, segment: null, subsegment: null, currency: "USD", product_key: null, raw: {} },
+  catalog_products: { sku: null, brand: null, category: null, subcategory: null, range_name: null, format: null, status: "active", launch_date: null, price: null, currency: "EUR", description: null, image_url: null, attributes: {} },
+  analyses: { status: "queued", params: {}, result: {}, error_message: null, started_at: null, completed_at: null },
+  growth_opportunities: { description: null, score: null, estimated_impact: {}, refs: {} },
 };
 
 class LocalRepo implements Repo {
@@ -158,7 +177,7 @@ class LocalRepo implements Repo {
           ({
             ...DEFAULTS[table],
             created_at: now,
-            updated_at: now,
+            ...(["reports", "market_products", "catalog_products", "circana_imports", "profiles"].includes(table) ? { updated_at: now } : {}),
             ...(r as Record<string, unknown>),
             id: ((r as Record<string, unknown>).id as string) ?? randomUUID(),
           }) as Row,
@@ -187,6 +206,13 @@ class LocalRepo implements Repo {
     return locked(async () => {
       const d = await load();
       d[table] = (d[table] ?? []).filter((x) => x.id !== id);
+      await save(d);
+    });
+  }
+  removeWhere(table: Table, eq: Record<string, unknown>) {
+    return locked(async () => {
+      const d = await load();
+      d[table] = (d[table] ?? []).filter((x) => !matches(x, { eq }));
       await save(d);
     });
   }

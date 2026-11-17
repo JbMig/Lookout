@@ -4,30 +4,38 @@ import { isDemo } from "./config";
 import { discoverUrl, domainOf } from "./agents/discovery";
 import { scrape } from "./agents/scraper";
 import { linkupExtract } from "./agents/extractor";
-import { startNavigator, pollNavigator } from "./agents/navigator";
+import { pollNavigator, startNavigator } from "./agents/navigator";
 import { demoResists, demoSheet } from "./agents/demo";
 import { mergeSheets, missingFields } from "./product";
 import { toEur } from "./currency";
 import { withFamilies } from "./shades";
+import { sitesFor, siteByDomain } from "./sites";
 import { computeCatalog, computeStats, writeAnalysis } from "./analysis";
 import { computeTrends } from "./trends";
+import { loadSheets, openComputerUseJob, openTeamJob, saveMarketProduct, sessionOf } from "./market";
+import { itemViews } from "./reports";
+import { toClientProduct } from "./imports";
 import { logRun } from "./runs";
-import type { ClientProductRow, ProductSheet, ReportItemRow, ReportRow, SiteRow, Zone } from "./types";
+import type {
+  AnalysisRow,
+  CatalogInsights,
+  CatalogProductRow,
+  EnrichmentJobRow,
+  GrowthOpportunityRow,
+  ProductSheet,
+  ReportDbRow,
+  StoredItem,
+} from "./types";
 
 /**
- * Pipeline d'une analyse, avancé par petites étapes (/api/reports/[id]/step) :
+ * Pipeline d'une analyse, avancé par petites étapes (/api/reports/[id]/step).
+ * Les lignes à enrichir vivent dans reports.data.items ; les fiches dans market_products ;
+ * les produits que le scraping ne sait pas traiter partent dans enrichment_jobs (file de l'équipe).
  *
- *   pending ─► Découverte Linkup ─► Scraping direct ─► Extraction Linkup
- *                                        │ complet            │ complet
- *                                        ▼                    ▼
- *                                       done                 done
+ *   pending ─► Découverte Linkup ─► Scraping direct ─► Extraction Linkup ─► done
  *                                                             │ incomplet
- *                           site avec parcours enregistré ◄───┤
- *                                   │                          ▼
- *                              navigating (H Company)   awaiting_team (file de l'équipe)
- *
- * Le rapport est finalisé dès qu'il ne reste rien d'automatique à faire ;
- * il est recalculé à chaque fois que l'équipe débloque un produit.
+ *                    site avec parcours (sites.ts) ◄──────────┤
+ *                    navigating (H Company)              awaiting_team (enrichment_jobs)
  */
 
 const BATCH = 3;
@@ -38,42 +46,35 @@ async function finishSheet(sheet: ProductSheet | null): Promise<ProductSheet | n
   return { ...sheet, shades: withFamilies(sheet.shades), priceEur: await toEur(sheet.price, sheet.currency) };
 }
 
-export async function sitesFor(report: ReportRow, zone: Zone): Promise<SiteRow[]> {
-  const all = await repo().select<SiteRow>("sites", { eq: { zone } });
-  const usable = all.filter((s) => !["blocked", "requested"].includes(s.status));
-  const chosen = report.params.siteIds?.length ? usable.filter((s) => report.params.siteIds.includes(s.id)) : usable;
-  return chosen.length ? chosen : usable;
+function touch(item: StoredItem, patch: Partial<StoredItem>) {
+  Object.assign(item, patch, { updatedAt: new Date().toISOString() });
 }
 
-async function markSite(domain: string | null, patch: Partial<SiteRow>) {
-  if (!domain) return;
-  const [site] = await repo().select<SiteRow>("sites", { eq: { domain } });
-  if (site) await repo().update("sites", site.id, patch);
+async function saveData(report: ReportDbRow, patch: Partial<ReportDbRow["data"]>, extra: Partial<ReportDbRow> = {}) {
+  report.data = { ...report.data, ...patch };
+  Object.assign(report, extra);
+  await repo().update("reports", report.id, { data: report.data, ...extra });
 }
 
-async function setItem(id: string, patch: Partial<ReportItemRow>) {
-  await repo().update("report_items", id, { ...patch, updated_at: new Date().toISOString() });
-}
+/* ---------------- Collecte d'une ligne ---------------- */
 
-async function collectItem(report: ReportRow, item: ReportItemRow) {
-  const ctx = { orgId: report.org_id, reportId: report.id };
-  await setItem(item.id, { status: "collecting" });
+async function collectItem(report: ReportDbRow, item: StoredItem) {
   const row = item.circana;
-  const sites = await sitesFor(report, row.zone);
+  const category = report.config.category;
+  const sites = sitesFor(row.zone, report.config.params.siteIds ?? []);
   const domains = sites.map((s) => s.domain);
 
-  // Mode démo : simule le parcours complet sans appel externe.
   if (isDemo.linkup) {
     const url = await discoverUrl(row, domains);
     const domain = domainOf(url);
-    if (demoResists(row)) {
-      await setItem(item.id, {
-        status: "awaiting_team", method: "demo", site_domain: domain,
-        product: await finishSheet(demoSheet(row, false)),
-        error: "Scraping incomplet (composition, formats) : signalé à l'équipe",
-      });
+    const resists = demoResists(row);
+    const sheet = await finishSheet(demoSheet(row, !resists));
+    const productId = await saveMarketProduct({ sheet, row, domain, url, method: "demo", category });
+    if (resists) {
+      const jobId = await openTeamJob(productId, "Scraping incomplet (composition, formats)");
+      touch(item, { status: "awaiting_team", method: "demo", siteDomain: domain, marketProductId: productId, jobId, error: "Scraping incomplet : signalé à l'équipe" });
     } else {
-      await setItem(item.id, { status: "done", method: "demo", site_domain: domain, product: await finishSheet(demoSheet(row, true)), error: null });
+      touch(item, { status: "done", method: "demo", siteDomain: domain, marketProductId: productId, error: null });
     }
     return;
   }
@@ -82,153 +83,246 @@ async function collectItem(report: ReportRow, item: ReportItemRow) {
   let sheet: ProductSheet | null = null;
   const notes: string[] = [];
 
-  // 1. Découverte
   try {
     url = await discoverUrl(row, domains);
-    await logRun("linkup", "discovery", !!url, ctx);
+    logRun("linkup", "discovery", !!url, report.id);
   } catch (e) {
     notes.push(`Découverte : ${(e as Error).message}`);
-    await logRun("linkup", "discovery", false, ctx);
+    logRun("linkup", "discovery", false, report.id);
   }
-  const domain = domainOf(url);
-  const site = sites.find((s) => s.domain === domain) ?? null;
+  let domain = domainOf(url);
+  const site = siteByDomain(domain);
 
-  // 2. Scraping direct
-  if (url && site?.status !== "computer_use") {
+  if (url && site?.method !== "computer_use") {
     try {
       sheet = await scrape(url);
-      await logRun("scraping", "page", !!sheet, ctx);
+      logRun("scraping", "page", !!sheet, report.id);
       if (sheet && !missingFields(sheet).length) {
-        await setItem(item.id, { status: "done", method: "scraping", site_domain: domain, product: await finishSheet(sheet), error: null });
-        if (site && site.status === "untested") await markSite(domain, { status: "scraping", last_success_at: new Date().toISOString() });
-        else await markSite(domain, { last_success_at: new Date().toISOString() });
+        const productId = await saveMarketProduct({ sheet: await finishSheet(sheet), row, domain, url, method: "scraping", category });
+        touch(item, { status: "done", method: "scraping", siteDomain: domain, marketProductId: productId, error: null });
         return;
       }
     } catch (e) {
       notes.push(`Scraping : ${(e as Error).message}`);
-      await logRun("scraping", "page", false, ctx);
+      logRun("scraping", "page", false, report.id);
     }
   }
 
-  // 3. Extraction Linkup
-  if (site?.status !== "computer_use") {
+  if (site?.method !== "computer_use") {
     try {
       sheet = mergeSheets(sheet, await linkupExtract(row, url, domains));
-      await logRun("linkup", "extraction", !!sheet, ctx);
+      logRun("linkup", "extraction", !!sheet, report.id);
       if (sheet && !missingFields(sheet).length) {
-        const d = domainOf(sheet.sourceUrl) ?? domain;
-        await setItem(item.id, { status: "done", method: "linkup", site_domain: d, product: await finishSheet(sheet), error: null });
-        if (site && ["untested", "needs_review"].includes(site.status)) await markSite(d, { status: "linkup", last_success_at: new Date().toISOString() });
+        domain = domainOf(sheet.sourceUrl) ?? domain;
+        const productId = await saveMarketProduct({ sheet: await finishSheet(sheet), row, domain, url, method: "linkup", category });
+        touch(item, { status: "done", method: "linkup", siteDomain: domain, marketProductId: productId, error: null });
         return;
       }
     } catch (e) {
       notes.push(`Extraction : ${(e as Error).message}`);
-      await logRun("linkup", "extraction", false, ctx);
+      logRun("linkup", "extraction", false, report.id);
     }
   }
 
   const missing = missingFields(sheet);
+  domain = domain ?? domains[0] ?? null;
+  const productId = await saveMarketProduct({ sheet: await finishSheet(sheet), row, domain, url, method: null, category });
 
-  // 4a. Parcours de computer use déjà enregistré pour ce site : lancement automatique.
-  if (site?.status === "computer_use" && site.cu_instructions) {
+  // Parcours enregistré dans sites.ts : computer use lancé automatiquement.
+  if (site?.method === "computer_use" && site.cuInstructions) {
     try {
-      const sessionId = await startNavigator({ row, url, domain, instructions: site.cu_instructions, missing });
-      await logRun("hcompany", "session", true, ctx);
-      await setItem(item.id, {
-        status: "navigating", method: "hcompany", site_domain: domain, session_id: sessionId,
-        product: await finishSheet(sheet), error: `Parcours H Company en cours (${missing.join(", ")})`,
-      });
+      const sessionId = await startNavigator({ row, url, domain, instructions: site.cuInstructions, missing });
+      logRun("hcompany", "session", true, report.id);
+      const jobId = await openComputerUseJob(productId, sessionId, `Parcours automatique (${missing.join(", ")})`);
+      touch(item, { status: "navigating", method: "hcompany", siteDomain: domain, marketProductId: productId, jobId, error: null });
       return;
     } catch (e) {
       notes.push(`H Company : ${(e as Error).message}`);
-      await logRun("hcompany", "session", false, ctx);
+      logRun("hcompany", "session", false, report.id);
     }
   }
 
-  // 4b. Sinon : signalé à l'équipe, qui créera le parcours de computer use.
-  await setItem(item.id, {
-    status: "awaiting_team",
-    site_domain: domain ?? domains[0] ?? null,
-    product: await finishSheet(sheet),
-    error: [`Champs manquants : ${missing.join(", ")}`, ...notes].join(" · "),
-  });
-  if (site && site.status === "untested") await markSite(domain, { status: "needs_review" });
+  const error = [`Champs manquants : ${missing.join(", ")}`, ...notes].join(" · ");
+  const jobId = await openTeamJob(productId, error);
+  touch(item, { status: "awaiting_team", siteDomain: domain, marketProductId: productId, jobId, error });
 }
 
-export async function checkNavigator(item: ReportItemRow, reportId: string, orgId: string) {
+/* ---------------- Sessions H Company et file de l'équipe ---------------- */
+
+/** Interroge une session H Company en cours ; met à jour la fiche et la tâche. Renvoie true si terminée. */
+export async function pollJob(job: EnrichmentJobRow): Promise<boolean> {
+  const sessionId = sessionOf(job);
+  if (job.status !== "running" || !sessionId) return false;
+  const db = repo();
+  const [product] = (await loadSheets([job.target_id])).values();
+  if (!product) return false;
+  const zone = product.row.raw_data?.zone ?? "EU";
+  const row = { brand: product.row.brand, product: product.row.name, zone };
   try {
-    const poll = await pollNavigator(item.session_id!, item.circana);
+    const poll = await pollNavigator(sessionId, row);
     if (!poll.done) return false;
-    await logRun("hcompany", "result", !!poll.sheet, { orgId, reportId });
-    const merged = await finishSheet(mergeSheets(poll.sheet, item.product));
-    const missing = missingFields(merged);
-    await setItem(item.id, {
-      status: merged ? (missing.length ? "partial" : "done") : "awaiting_team",
-      method: "hcompany",
-      product: merged,
-      error: poll.error ?? (missing.length ? `Champs manquants : ${missing.join(", ")}` : null),
+    logRun("hcompany", "result", !!poll.sheet);
+    const merged = await finishSheet(mergeSheets(poll.sheet, product.sheet));
+    await saveMarketProduct({
+      sheet: merged, row, domain: product.row.source_site, url: product.row.product_url, method: "hcompany",
+      category: product.row.category ?? "", existingId: job.target_id,
     });
-    if (merged && !missing.length) await markSite(item.site_domain, { last_success_at: new Date().toISOString() });
-    return true;
+    const missing = missingFields(merged);
+    await db.update("enrichment_jobs", job.id, {
+      status: merged ? "completed" : "failed",
+      finished_at: new Date().toISOString(),
+      error_message: poll.error ?? (missing.length ? `Champs manquants : ${missing.join(", ")}` : null),
+    });
   } catch (e) {
-    await setItem(item.id, { status: "awaiting_team", error: (e as Error).message });
-    return true;
+    await db.update("enrichment_jobs", job.id, { status: "queued", source: "team", error_message: (e as Error).message });
   }
+  return true;
+}
+
+/** Répercute l'état des tâches de l'équipe sur les lignes du rapport. Renvoie true si quelque chose a changé. */
+async function reconcile(report: ReportDbRow): Promise<boolean> {
+  const items = (report.data.items ?? []).filter((i) => i.jobId && ["awaiting_team", "navigating"].includes(i.status));
+  if (!items.length) return false;
+  const jobs = await repo().select<EnrichmentJobRow>("enrichment_jobs", { in: ["id", items.map((i) => i.jobId!)] });
+  for (const j of jobs.filter((x) => x.status === "running")) await pollJob(j);
+  const fresh = await repo().select<EnrichmentJobRow>("enrichment_jobs", { in: ["id", items.map((i) => i.jobId!)] });
+  const sheets = await loadSheets(items.map((i) => i.marketProductId ?? ""));
+  let changed = false;
+  for (const item of items) {
+    const job = fresh.find((j) => j.id === item.jobId);
+    if (!job) continue;
+    const p = item.marketProductId ? sheets.get(item.marketProductId) : undefined;
+    if (job.status === "completed") {
+      const missing = missingFields(p?.sheet ?? null);
+      touch(item, { status: missing.length ? "partial" : "done", method: p?.method ?? item.method, error: missing.length ? job.error_message : null });
+      changed = true;
+    } else if (job.status === "failed") {
+      touch(item, { status: "failed", error: job.error_message ?? "Écarté par l'équipe" });
+      changed = true;
+    } else if (job.status === "running" && item.status !== "navigating") {
+      touch(item, { status: "navigating", method: "hcompany" });
+      changed = true;
+    } else if (job.status === "queued" && item.status !== "awaiting_team") {
+      touch(item, { status: "awaiting_team", error: job.error_message });
+      changed = true;
+    }
+  }
+  return changed;
+}
+
+/* ---------------- Finalisation ---------------- */
+
+async function catalogFor(report: ReportDbRow) {
+  const ids = report.config.catalogProductIds ?? [];
+  if (!ids.length) return [];
+  return (await repo().select<CatalogProductRow>("catalog_products", { in: ["id", ids] })).map(toClientProduct);
+}
+
+async function saveOpportunities(analysisId: string, catalog: CatalogInsights) {
+  const db = repo();
+  await db.removeWhere("growth_opportunities", { analysis_id: analysisId });
+  const rows: Partial<GrowthOpportunityRow>[] = [];
+  for (const p of catalog.products) {
+    const name = `${p.client.brand} ${p.client.name}`;
+    if (p.priceGapPct !== null && Math.abs(p.priceGapPct) > 10) {
+      rows.push({
+        analysis_id: analysisId, kind: "price_gap", score: Math.abs(p.priceGapPct),
+        title: `${name} : ${p.priceGapPct > 0 ? "+" : ""}${p.priceGapPct} % vs prix moyen du marché`,
+        description: p.priceGapPct > 0 ? "Positionné au-dessus du marché : vérifier la valeur perçue." : "Positionné sous le marché : marge de hausse possible.",
+        refs: { product: name, matched: p.matchName },
+      });
+    }
+    if (p.shadesGap !== null && p.shadesGap <= -1) {
+      rows.push({
+        analysis_id: analysisId, kind: "shade_gap", score: Math.abs(p.shadesGap),
+        title: `${name} : ${Math.abs(p.shadesGap)} teintes de moins que les best-sellers`,
+        description: "Élargir la gamme de teintes pour s'aligner sur les meilleures ventes.",
+        refs: { product: name },
+      });
+    }
+  }
+  if (rows.length) await db.insert<GrowthOpportunityRow>("growth_opportunities", rows);
 }
 
 /** Calcule (ou recalcule) statistiques, tendances, audit du catalogue et analyse. */
-export async function finalize(reportId: string) {
+export async function finalize(report: ReportDbRow) {
   const db = repo();
-  const report = await db.get<ReportRow>("reports", reportId);
-  if (!report) return;
-  await db.update("reports", reportId, { status: "analyzing" });
+  await saveData(report, { phase: "analyzing" }, { status: "generating" });
   try {
-    const items = await db.select<ReportItemRow>("report_items", { eq: { report_id: reportId }, order: ["position", "asc"] });
-    const clientProducts = await db.select<ClientProductRow>("client_products", { eq: { report_id: reportId } });
-    const trends = report.trends ?? (await computeTrends(report.category));
+    const items = await itemViews(report);
+    const trends = report.data.trends ?? (await computeTrends(report.config.category));
     const stats = computeStats(items);
-    const { insights, matches } = await computeCatalog(items, clientProducts);
-    for (const m of matches) await db.update("client_products", m.id, { match_item_id: m.itemId, match_score: m.score });
-    const analysis = await writeAnalysis(report.category, stats, items, trends, insights);
-    if (!isDemo.hf) await logRun("huggingface", "analysis", true, { orgId: report.org_id, reportId });
-    await db.update("reports", reportId, { status: "done", stats, trends, catalog: insights, analysis, error: null });
+    const catalog = await computeCatalog(items, await catalogFor(report));
+    const analysis = await writeAnalysis(report.config.category, stats, items, trends, catalog);
+    if (!isDemo.hf) logRun("huggingface", "analysis", true, report.id);
+
+    // Analyses enregistrées dans la table analyses (réutilisées à chaque recalcul).
+    const now = new Date().toISOString();
+    const existing = report.analysis_ids?.length ? await db.select<AnalysisRow>("analyses", { in: ["id", report.analysis_ids] }) : [];
+    const upsert = async (type: AnalysisRow["type"], result: Record<string, unknown>) => {
+      const found = existing.find((a) => a.type === type);
+      const fields = { type, status: "completed" as const, params: { reportId: report.id, ...report.config.params }, result, completed_at: now };
+      if (found) {
+        await db.update("analyses", found.id, fields);
+        return found.id;
+      }
+      return (await db.insert<AnalysisRow>("analyses", [{ ...fields, started_at: now }]))[0].id;
+    };
+    const ids = [await upsert("market_comparison", { stats, analysis, trends: { ...trends, fromTable: undefined } })];
+    if (catalog) {
+      const auditId = await upsert("catalog_audit", { catalog });
+      ids.push(auditId);
+      await saveOpportunities(auditId, catalog);
+    }
+
+    const { fromTable: _ignored, ...trendsToStore } = trends as typeof trends & { fromTable?: boolean };
+    void _ignored;
+    await saveData(report, { phase: undefined, stats, trends: trendsToStore, catalog, analysis }, { status: "ready", analysis_ids: ids, error_message: null });
   } catch (e) {
-    await db.update("reports", reportId, { status: "failed", error: (e as Error).message });
+    await saveData(report, { phase: undefined }, { status: "failed", error_message: (e as Error).message });
   }
 }
 
-export async function step(reportId: string) {
-  const db = repo();
-  const report = await db.get<ReportRow>("reports", reportId);
-  if (!report) throw new Error("Rapport introuvable");
-  if (report.status === "failed" || report.status === "analyzing") return report;
+/* ---------------- Étape ---------------- */
 
-  const items = await db.select<ReportItemRow>("report_items", { eq: { report_id: reportId } });
+export async function step(report: ReportDbRow) {
+  if (report.status === "failed") return report;
+  if (report.status === "generating" && report.data.phase === "analyzing") return report;
 
-  // Rapport déjà finalisé : on suit seulement les sessions H Company encore ouvertes.
-  if (report.status === "done") {
-    const results = await Promise.all(
-      items.filter((i) => i.status === "navigating").map((i) => checkNavigator(i, reportId, report.org_id)),
-    );
-    if (results.some(Boolean)) await finalize(reportId);
-    return (await db.get<ReportRow>("reports", reportId))!;
+  const items = report.data.items ?? [];
+
+  // Rapport prêt : on suit seulement le travail de l'équipe et les sessions H Company.
+  if (report.status === "ready") {
+    if (await reconcile(report)) {
+      await saveData(report, { items });
+      await finalize(report);
+    }
+    return report;
   }
 
   const now = Date.now();
-  for (const i of items.filter((x) => x.status === "collecting" && now - new Date(x.updated_at).getTime() > STALE_MS)) {
-    await setItem(i.id, { status: "pending" });
-    i.status = "pending";
+  for (const i of items) if (i.status === "collecting" && now - new Date(i.updatedAt).getTime() > STALE_MS) touch(i, { status: "pending" });
+
+  const batch = items.filter((i) => i.status === "pending").sort((a, b) => a.position - b.position).slice(0, BATCH);
+  for (const i of batch) touch(i, { status: "collecting" });
+  await saveData(report, { items, phase: "collecting" }, { status: "generating" });
+
+  await Promise.all(batch.map((i) => collectItem(report, i).catch((e) => touch(i, { status: "failed", error: (e as Error).message }))));
+  await reconcile(report);
+  await saveData(report, { items });
+
+  if (!items.some((i) => ["pending", "collecting"].includes(i.status))) await finalize(report);
+  return report;
+}
+
+/** Après une action de l'équipe : met à jour tous les rapports qui contiennent ce produit. */
+export async function refreshReportsFor(productId: string) {
+  const reports = await repo().select<ReportDbRow>("reports", { eq: { type: "dashboard" }, order: ["created_at", "desc"], limit: 200 });
+  for (const r of reports) {
+    if (!(r.data?.items ?? []).some((i) => i.marketProductId === productId)) continue;
+    if (await reconcile(r)) {
+      await saveData(r, { items: r.data.items });
+      if (r.status === "ready") await finalize(r);
+    }
   }
-
-  const navigating = items.filter((i) => i.status === "navigating");
-  const pending = items.filter((i) => i.status === "pending").sort((a, b) => a.position - b.position).slice(0, BATCH);
-  await Promise.all([
-    ...navigating.map((i) => checkNavigator(i, reportId, report.org_id)),
-    ...pending.map((i) => collectItem(report, i)),
-  ]);
-
-  const after = await db.select<ReportItemRow>("report_items", { eq: { report_id: reportId } });
-  const automaticWorkLeft = after.some((i) => ["pending", "collecting"].includes(i.status));
-  if (!automaticWorkLeft) await finalize(reportId);
-  return (await db.get<ReportRow>("reports", reportId))!;
 }

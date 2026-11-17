@@ -1,26 +1,39 @@
 import { handle } from "@/lib/http";
 import { requireStaff } from "@/lib/auth";
 import { repo } from "@/lib/repo";
-import type { OrganizationRow, ReportItemRow, ReportRow, SiteRow } from "@/lib/types";
+import { loadSheets, OPEN_JOB, sessionOf } from "@/lib/market";
+import { siteByDomain } from "@/lib/sites";
+import type { EnrichmentJobRow, ReportDbRow } from "@/lib/types";
 
-/** File de l'équipe : produits que le scraping n'a pas pu traiter. */
+/** File de l'équipe : tâches enrichment_jobs ouvertes (scraping incomplet, computer use en cours). */
 export const GET = handle(async () => {
   await requireStaff();
   const db = repo();
-  const items = await db.select<ReportItemRow>("report_items", { in: ["status", ["awaiting_team", "navigating", "partial"]], order: ["updated_at", "asc"], limit: 300 });
-  const reportIds = [...new Set(items.map((i) => i.report_id))];
-  const reports = reportIds.length ? await db.select<ReportRow>("reports", { in: ["id", reportIds] }) : [];
-  const orgIds = [...new Set(reports.map((r) => r.org_id))];
-  const orgs = orgIds.length ? await db.select<OrganizationRow>("organizations", { in: ["id", orgIds] }) : [];
-  const sites = await db.select<SiteRow>("sites");
+  const jobs = await db.select<EnrichmentJobRow>("enrichment_jobs", {
+    eq: { target_type: "market_product" }, in: ["status", OPEN_JOB], order: ["created_at", "asc"], limit: 300,
+  });
+  const products = await loadSheets(jobs.map((j) => j.target_id));
+  const reports = await db.select<ReportDbRow>("reports", { eq: { type: "dashboard" }, order: ["created_at", "desc"], limit: 200 });
   return {
-    items: items.map((i) => {
-      const r = reports.find((x) => x.id === i.report_id);
+    jobs: jobs.map((j) => {
+      const p = products.get(j.target_id);
+      const usedIn = reports.filter((r) => (r.data?.items ?? []).some((i) => i.marketProductId === j.target_id));
       return {
-        ...i,
-        reportName: r?.name ?? "?",
-        orgName: orgs.find((o) => o.id === r?.org_id)?.name ?? "?",
-        site: sites.find((s) => s.domain === i.site_domain) ?? null,
+        id: j.id,
+        status: j.status,
+        attempts: j.attempts,
+        error: j.error_message,
+        sessionId: sessionOf(j),
+        created_at: j.created_at,
+        productId: j.target_id,
+        brand: p?.row.brand ?? "?",
+        name: p?.row.name ?? "?",
+        url: p?.row.product_url ?? null,
+        zone: p?.row.raw_data?.zone ?? null,
+        product: p?.sheet ?? null,
+        site: siteByDomain(p?.row.source_site) ?? null,
+        siteDomain: p?.row.source_site ?? null,
+        reports: usedIn.map((r) => ({ id: r.id, name: r.title })),
       };
     }),
   };

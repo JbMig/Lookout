@@ -1,10 +1,10 @@
-import type { ReportItemRow } from "@/lib/types";
+import type { ItemView } from "@/lib/types";
 import { StatusBadge } from "../StatusBadge";
 import { fmtMoney } from "@/lib/client";
 
 const METHOD = { scraping: "scraping direct", linkup: "Linkup", hcompany: "H Company (computer use)", manual: "saisie de l'équipe", demo: "démo" } as const;
 
-export function ProductCard({ item, isClient }: { item: ReportItemRow; isClient?: boolean }) {
+export function ProductCard({ item, isClient }: { item: ItemView; isClient?: boolean }) {
   const p = item.product;
   const c = item.circana;
   return (

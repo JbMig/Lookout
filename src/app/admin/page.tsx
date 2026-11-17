@@ -1,18 +1,37 @@
 "use client";
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { api, fmtDate } from "@/lib/client";
 import { Private } from "@/components/Session";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Card, ErrorText, Field, btnPrimary, btnSecondary, inputCls } from "@/components/ui";
-import type { OrganizationRow, PlanId, ReportItemRow, SiteRow, SiteStatus } from "@/lib/types";
-import { PLANS } from "@/lib/plans";
+import type { ProductSheet, Zone } from "@/lib/types";
+import type { Site } from "@/lib/sites";
 
-type QueueItem = ReportItemRow & { reportName: string; orgName: string; site: SiteRow | null };
+/** Tâche de la file de l'équipe (table enrichment_jobs + fiche market_products). */
+interface QueueItem {
+  id: string;
+  status: "queued" | "running" | "completed" | "failed";
+  attempts: number;
+  error: string | null;
+  sessionId: string | null;
+  created_at: string;
+  productId: string;
+  brand: string;
+  name: string;
+  url: string | null;
+  zone: Zone | null;
+  product: ProductSheet | null;
+  site: Site | null;
+  siteDomain: string | null;
+  reports: { id: string; name: string }[];
+}
+
 const TABS = [
   { id: "queue", label: "File de l'équipe" },
-  { id: "sites", label: "Catalogue de sites" },
-  { id: "orgs", label: "Clients" },
-  { id: "costs", label: "Appels et coûts" },
+  { id: "sites", label: "Sites" },
+  { id: "users", label: "Utilisateurs" },
+  { id: "stats", label: "Collecte" },
 ] as const;
 
 /* ---------------- File de l'équipe ---------------- */
@@ -20,16 +39,16 @@ const TABS = [
 function ManualForm({ item, onDone }: { item: QueueItem; onDone: () => void }) {
   const p = item.product;
   const [f, setF] = useState({
-    name: p?.name || item.circana.product,
-    brand: p?.brand || item.circana.brand,
+    name: p?.name || item.name,
+    brand: p?.brand || item.brand,
     price: p?.price?.toString() ?? "",
-    currency: p?.currency ?? (item.circana.zone === "US" ? "USD" : "EUR"),
+    currency: p?.currency ?? (item.zone === "US" ? "USD" : "EUR"),
     ingredients: p?.ingredients ?? "",
     formats: p?.formats.map((x) => x.size).join(", ") ?? "",
     shades: p?.shades.map((x) => (x.hex ? `${x.name} ${x.hex}` : x.name)).join(", ") ?? "",
     packaging: p?.packaging ?? "",
     imageUrl: p?.imageUrl ?? "",
-    sourceUrl: p?.sourceUrl ?? "",
+    sourceUrl: p?.sourceUrl ?? (item.url?.includes("/search?") ? "" : item.url ?? ""),
   });
   const [error, setError] = useState<string | null>(null);
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setF({ ...f, [k]: e.target.value });
@@ -42,7 +61,7 @@ function ManualForm({ item, onDone }: { item: QueueItem; onDone: () => void }) {
     if (f.currency && f.currency.length !== 3) return setError("Devise sur 3 lettres (EUR, USD…).");
     const url = (v: string) => (v.trim() ? v.trim() : null);
     try {
-      await api(`/api/admin/items/${item.id}`, {
+      await api(`/api/admin/jobs/${item.id}`, {
         method: "POST",
         json: {
           action: "manual",
@@ -84,9 +103,8 @@ function ManualForm({ item, onDone }: { item: QueueItem; onDone: () => void }) {
 }
 
 function QueueCard({ item, reload }: { item: QueueItem; reload: () => void }) {
-  const [instructions, setInstructions] = useState(item.site?.cu_instructions ?? "");
-  const [url, setUrl] = useState(item.product?.sourceUrl ?? "");
-  const [save, setSave] = useState(true);
+  const [instructions, setInstructions] = useState(item.site?.cuInstructions ?? "");
+  const [url, setUrl] = useState(item.product?.sourceUrl ?? (item.url?.includes("/search?") ? "" : item.url ?? ""));
   const [open, setOpen] = useState<"cu" | "manual" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -95,7 +113,7 @@ function QueueCard({ item, reload }: { item: QueueItem; reload: () => void }) {
     setError(null);
     setBusy(true);
     try {
-      await api(`/api/admin/items/${item.id}`, { method: "POST", json });
+      await api(`/api/admin/jobs/${item.id}`, { method: "POST", json });
       setOpen(null);
       reload();
     } catch (e) {
@@ -109,24 +127,30 @@ function QueueCard({ item, reload }: { item: QueueItem; reload: () => void }) {
     <li className="rounded-xl border border-line bg-paper p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="font-medium">{item.circana.brand} · {item.circana.product} <span className="text-xs text-ink-soft">({item.circana.zone})</span></p>
+          <p className="font-medium">{item.brand} · {item.name} {item.zone && <span className="text-xs text-ink-soft">({item.zone})</span>}</p>
           <p className="text-sm text-ink-soft">
-            {item.orgName} · {item.reportName} · site : {item.site?.name ?? item.site_domain ?? "inconnu"}
-            {item.site && <> · <StatusBadge status={item.site.status} /></>}
+            site : {item.site?.name ?? item.siteDomain ?? "inconnu"} · {item.attempts} tentative(s) · depuis le {fmtDate(item.created_at)}
           </p>
+          {!!item.reports.length && (
+            <p className="text-sm text-ink-soft">
+              Rapports :{" "}
+              {item.reports.map((r, i) => (
+                <span key={r.id}>{i > 0 && ", "}<Link className="underline underline-offset-2" href={`/reports/${r.id}`}>{r.name}</Link></span>
+              ))}
+            </p>
+          )}
           {item.error && <p className="mt-1 text-sm text-amber-dark">{item.error}</p>}
         </div>
-        <StatusBadge status={item.status} />
+        <StatusBadge status={item.status === "running" ? "navigating" : "awaiting_team"} />
       </div>
 
       <div className="mt-3 flex flex-wrap gap-2">
-        {item.status === "navigating" ? (
+        {item.status === "running" ? (
           <button className={btnSecondary} disabled={busy} onClick={() => act({ action: "poll" })}>Vérifier la session H Company</button>
         ) : (
           <button className={btnPrimary} onClick={() => setOpen(open === "cu" ? null : "cu")}>Lancer le computer use</button>
         )}
         <button className={btnSecondary} onClick={() => setOpen(open === "manual" ? null : "manual")}>Saisie manuelle</button>
-        <button className={btnSecondary} disabled={busy} onClick={() => act({ action: "retry" })}>Relancer la collecte</button>
         <button className={`${btnSecondary} text-bad`} disabled={busy} onClick={() => act({ action: "dismiss" })}>Écarter</button>
       </div>
       <ErrorText>{error}</ErrorText>
@@ -137,17 +161,16 @@ function QueueCard({ item, reload }: { item: QueueItem; reload: () => void }) {
           onSubmit={(e) => {
             e.preventDefault();
             if (url && !/^https?:\/\//.test(url)) return setError("L'URL doit commencer par http(s)://");
-            act({ action: "start_cu", url: url || null, instructions: instructions || null, saveToSite: save });
+            act({ action: "start_cu", url: url || null, instructions: instructions || null });
           }}
         >
           <Field label="URL de départ (facultatif)"><input className={inputCls} value={url} onChange={(e) => setUrl(e.target.value)} /></Field>
           <Field label="Parcours pour ce site" hint="Étapes concrètes en anglais : « Close the country pop-up, open the Ingredients accordion, open the shade selector… »">
             <textarea rows={4} className={inputCls} value={instructions} onChange={(e) => setInstructions(e.target.value)} />
           </Field>
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={save} onChange={(e) => setSave(e.target.checked)} />
-            Enregistrer ce parcours pour {item.site?.name ?? "ce site"} : les prochains produits passeront automatiquement en computer use
-          </label>
+          <p className="text-xs text-ink-soft">
+            Pour que ce parcours soit appliqué automatiquement aux prochains produits du site, ajoutez-le dans src/lib/sites.ts (cuInstructions, méthode « computer_use »).
+          </p>
           <button className={btnPrimary} disabled={busy}>{busy ? "Lancement…" : "Lancer la session H Company"}</button>
         </form>
       )}
@@ -159,17 +182,17 @@ function QueueCard({ item, reload }: { item: QueueItem; reload: () => void }) {
 function Queue() {
   const [items, setItems] = useState<QueueItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const load = useCallback(() => api<{ items: QueueItem[] }>("/api/admin/queue").then((r) => setItems(r.items)).catch((e) => setError(e.message)), []);
+  const load = useCallback(() => api<{ jobs: QueueItem[] }>("/api/admin/queue").then((r) => setItems(r.jobs)).catch((e) => setError(e.message)), []);
   useEffect(() => {
     load();
   }, [load]);
 
   // Suivi automatique des sessions H Company en cours.
   useEffect(() => {
-    const navigating = (items ?? []).filter((i) => i.status === "navigating");
-    if (!navigating.length) return;
+    const running = (items ?? []).filter((i) => i.status === "running");
+    if (!running.length) return;
     const t = setTimeout(async () => {
-      await Promise.all(navigating.map((i) => api(`/api/admin/items/${i.id}`, { method: "POST", json: { action: "poll" } }).catch(() => null)));
+      await Promise.all(running.map((i) => api(`/api/admin/jobs/${i.id}`, { method: "POST", json: { action: "poll" } }).catch(() => null)));
       load();
     }, 8000);
     return () => clearTimeout(t);
@@ -180,148 +203,102 @@ function Queue() {
   if (!items.length) return <p className="rounded-xl border border-dashed border-line bg-paper p-8 text-center text-ink-soft">Aucun produit en attente : tous les sites passent en automatique.</p>;
   return (
     <div className="space-y-3">
-      <p className="text-sm text-ink-soft">{items.length} produit(s) que le scraping n&apos;a pas pu compléter. Une fois le parcours enregistré, le site passe en automatique pour tous les clients.</p>
+      <p className="text-sm text-ink-soft">{items.length} fiche(s) que le scraping n&apos;a pas pu compléter. Chaque fiche complétée met à jour tous les rapports qui la contiennent.</p>
       <ul className="space-y-3">{items.map((i) => <QueueCard key={i.id} item={i} reload={load} />)}</ul>
     </div>
   );
 }
 
-/* ---------------- Catalogue de sites ---------------- */
-
-const SITE_STATUSES: SiteStatus[] = ["untested", "scraping", "linkup", "computer_use", "needs_review", "blocked", "requested"];
+/* ---------------- Sites (définis dans le code) ---------------- */
 
 function Sites() {
-  const [sites, setSites] = useState<SiteRow[] | null>(null);
-  const [edit, setEdit] = useState<string | null>(null);
-  const [draft, setDraft] = useState("");
+  const [sites, setSites] = useState<Site[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const load = useCallback(() => api<{ sites: SiteRow[] }>("/api/sites").then((r) => setSites(r.sites)).catch((e) => setError(e.message)), []);
   useEffect(() => {
-    load();
-  }, [load]);
-
-  async function patch(id: string, json: Record<string, unknown>) {
-    setError(null);
-    try {
-      await api(`/api/sites/${id}`, { method: "PATCH", json });
-      await load();
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  }
-
+    api<{ sites: Site[] }>("/api/sites").then((r) => setSites(r.sites)).catch((e) => setError(e.message));
+  }, []);
   if (!sites) return <p className="text-ink-soft">{error ?? "Chargement…"}</p>;
   return (
     <Card>
-      <ErrorText>{error}</ErrorText>
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead className="text-ink-soft">
-            <tr><th className="py-2 font-medium">Site</th><th className="py-2 font-medium">Zone</th><th className="py-2 font-medium">Méthode</th><th className="py-2 font-medium">Dernier succès</th><th /></tr>
+            <tr><th className="py-2 font-medium">Site</th><th className="py-2 font-medium">Zone</th><th className="py-2 font-medium">Méthode</th><th className="py-2 font-medium">Parcours computer use</th></tr>
           </thead>
           <tbody>
             {sites.map((s) => (
-              <tr key={s.id} className="border-t border-line align-top">
-                <td className="py-2">
-                  <span className="font-medium">{s.name}</span> <span className="text-ink-soft">{s.domain}</span>
-                  {s.requested_by_org && <span className="ml-2 text-xs text-amber-dark">demandé par un client</span>}
-                  {edit === s.id && (
-                    <div className="mt-2 space-y-2">
-                      <textarea rows={4} aria-label="Parcours de computer use" className={inputCls} value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Parcours de computer use pour ce site" />
-                      <div className="flex gap-2">
-                        <button className={btnPrimary} onClick={() => patch(s.id, { cu_instructions: draft || null }).then(() => setEdit(null))}>Enregistrer</button>
-                        <button className={btnSecondary} onClick={() => setEdit(null)}>Annuler</button>
-                      </div>
-                    </div>
-                  )}
-                </td>
+              <tr key={s.domain} className="border-t border-line align-top">
+                <td className="py-2"><span className="font-medium">{s.name}</span> <span className="text-ink-soft">{s.domain}</span></td>
                 <td className="py-2">{s.zone}</td>
-                <td className="py-2">
-                  <select aria-label={`Méthode pour ${s.name}`} value={s.status} onChange={(e) => patch(s.id, { status: e.target.value })} className="rounded-md border border-line bg-paper px-2 py-1">
-                    {SITE_STATUSES.map((x) => <option key={x} value={x}>{x}</option>)}
-                  </select>
-                </td>
-                <td className="py-2">{s.last_success_at ? fmtDate(s.last_success_at) : "—"}</td>
-                <td className="py-2 text-right">
-                  <button className="text-sm underline underline-offset-2" onClick={() => { setEdit(s.id); setDraft(s.cu_instructions ?? ""); }}>Parcours</button>{" "}
-                  <button className="ml-2 text-sm text-bad underline underline-offset-2" onClick={() => confirm(`Supprimer ${s.domain} ?`) && api(`/api/sites/${s.id}`, { method: "DELETE" }).then(load)}>Supprimer</button>
-                </td>
+                <td className="py-2"><StatusBadge status={s.method} /></td>
+                <td className="py-2 text-xs text-ink-soft">{s.cuInstructions ?? "—"}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      <p className="mt-3 text-xs text-ink-soft">Ajoutez des sites depuis la page « Sites ».</p>
+      <p className="mt-3 text-xs text-ink-soft">
+        Le schéma Supabase n&apos;a pas de table de sites : ils sont définis dans src/lib/sites.ts. Modifiez ce fichier (méthode, parcours) puis redéployez.
+      </p>
     </Card>
   );
 }
 
-/* ---------------- Clients ---------------- */
+/* ---------------- Utilisateurs ---------------- */
 
-function Orgs() {
-  const [orgs, setOrgs] = useState<(OrganizationRow & { members: number; analysesThisMonth: number })[] | null>(null);
-  const load = useCallback(() => api<{ orgs: typeof orgs }>("/api/admin/orgs").then((r) => setOrgs(r.orgs)), []);
+function Users() {
+  const [users, setUsers] = useState<{ id: string; email: string | null; fullName: string | null; created_at: string }[] | null>(null);
   useEffect(() => {
-    load();
-  }, [load]);
-  if (!orgs) return <p className="text-ink-soft">Chargement…</p>;
+    api<{ users: NonNullable<typeof users> }>("/api/admin/users").then((r) => setUsers(r.users));
+  }, []);
+  if (!users) return <p className="text-ink-soft">Chargement…</p>;
   return (
     <Card>
-      <p className="mb-3 text-sm text-ink-soft">Le paiement en ligne (Stripe) n&apos;est pas encore branché : l&apos;offre se change ici après accord commercial.</p>
       <table className="w-full text-left text-sm">
-        <thead className="text-ink-soft"><tr><th className="py-2 font-medium">Client</th><th className="py-2 font-medium">Membres</th><th className="py-2 font-medium">Analyses ce mois</th><th className="py-2 font-medium">Offre</th></tr></thead>
+        <thead className="text-ink-soft"><tr><th className="py-2 font-medium">Nom</th><th className="py-2 font-medium">E-mail</th><th className="py-2 font-medium">Inscrit le</th></tr></thead>
         <tbody>
-          {orgs.map((o) => (
-            <tr key={o.id} className="border-t border-line">
-              <td className="py-2">{o.name} <span className="text-xs text-ink-soft">depuis le {fmtDate(o.created_at)}</span></td>
-              <td className="py-2">{o.members}</td>
-              <td className="py-2">{o.analysesThisMonth}</td>
-              <td className="py-2">
-                <select aria-label={`Offre de ${o.name}`} value={o.plan} onChange={(e) => api(`/api/admin/orgs/${o.id}`, { method: "PATCH", json: { plan: e.target.value } }).then(load)} className="rounded-md border border-line bg-paper px-2 py-1">
-                  {(Object.keys(PLANS) as PlanId[]).map((p) => <option key={p} value={p}>{PLANS[p].label}</option>)}
-                </select>
-              </td>
+          {users.map((u) => (
+            <tr key={u.id} className="border-t border-line">
+              <td className="py-2">{u.fullName ?? "—"}</td><td className="py-2">{u.email}</td><td className="py-2">{fmtDate(u.created_at)}</td>
             </tr>
           ))}
         </tbody>
       </table>
+      <p className="mt-3 text-xs text-ink-soft">Le paiement en ligne (Stripe) n&apos;est pas encore branché ; l&apos;équipe Lookout est définie par la variable STAFF_EMAILS.</p>
     </Card>
   );
 }
 
-/* ---------------- Coûts ---------------- */
+/* ---------------- Statistiques de collecte ---------------- */
 
-function Costs() {
-  const [data, setData] = useState<{ byService: { service: string; calls: number; failures: number }[]; byOrg: Record<string, string | number>[] } | null>(null);
+const METHOD_LABEL: Record<string, string> = { scraping: "Scraping direct", linkup: "Linkup", hcompany: "H Company", manual: "Saisie équipe", demo: "Démo", inconnue: "Non collectée" };
+
+function Stats() {
+  const [data, setData] = useState<{ products: number; byMethod: Record<string, number>; byStatus: Record<string, number>; bySite: Record<string, number>; jobsByStatus: Record<string, number> } | null>(null);
   useEffect(() => {
-    api<typeof data>("/api/admin/costs").then(setData);
+    api<NonNullable<typeof data>>("/api/admin/stats").then(setData);
   }, []);
   if (!data) return <p className="text-ink-soft">Chargement…</p>;
+  const block = (title: string, rec: Record<string, number>, label: (k: string) => string = (k) => k) => (
+    <Card>
+      <h2 className="mb-2 font-semibold">{title}</h2>
+      <ul className="space-y-1 text-sm">
+        {Object.entries(rec).sort((a, b) => b[1] - a[1]).map(([k, v]) => (
+          <li key={k} className="flex justify-between border-t border-line py-1"><span>{label(k)}</span><span className="font-medium">{v}</span></li>
+        ))}
+        {!Object.keys(rec).length && <li className="text-ink-soft">Aucune donnée</li>}
+      </ul>
+    </Card>
+  );
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-4">
-        {data.byService.map((s) => (
-          <div key={s.service} className="rounded-xl border border-line bg-paper p-4">
-            <p className="text-xs capitalize text-ink-soft">{s.service}</p>
-            <p className="mt-1 text-2xl font-semibold">{s.calls}</p>
-            <p className="text-xs text-ink-soft">{s.calls ? Math.round((s.failures / s.calls) * 100) : 0} % d&apos;échecs · 30 jours</p>
-          </div>
-        ))}
+      <p className="text-sm text-ink-soft">{data.products} fiches produits enregistrées (table market_products), partagées entre toutes les analyses.</p>
+      <div className="grid gap-4 md:grid-cols-2">
+        {block("Fiches par méthode de collecte", data.byMethod, (k) => METHOD_LABEL[k] ?? k)}
+        {block("Fiches par statut", data.byStatus)}
+        {block("Fiches par site", data.bySite)}
+        {block("Tâches de l'équipe par statut", data.jobsByStatus)}
       </div>
-      <Card>
-        <h2 className="mb-2 font-semibold">Par client</h2>
-        <table className="w-full text-left text-sm">
-          <thead className="text-ink-soft"><tr><th className="py-2 font-medium">Client</th><th className="py-2 font-medium">Scraping</th><th className="py-2 font-medium">Linkup</th><th className="py-2 font-medium">H Company</th><th className="py-2 font-medium">Hugging Face</th></tr></thead>
-          <tbody>
-            {data.byOrg.map((o) => (
-              <tr key={String(o.org)} className="border-t border-line">
-                <td className="py-2">{o.org}</td><td className="py-2">{o.scraping}</td><td className="py-2">{o.linkup}</td><td className="py-2">{o.hcompany}</td><td className="py-2">{o.huggingface}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <p className="mt-3 text-xs text-ink-soft">Multipliez par vos tarifs Linkup, H Company et Hugging Face pour obtenir le coût par client.</p>
-      </Card>
     </div>
   );
 }
@@ -341,8 +318,8 @@ function Admin() {
       </div>
       {tab === "queue" && <Queue />}
       {tab === "sites" && <Sites />}
-      {tab === "orgs" && <Orgs />}
-      {tab === "costs" && <Costs />}
+      {tab === "users" && <Users />}
+      {tab === "stats" && <Stats />}
     </div>
   );
 }

@@ -31,15 +31,15 @@ rapport visuel sourcé, partageable en un clic.
 
 ## Fonctionnalités
 
-| Côté client | Côté équipe Lookout (administration) |
+| Côté utilisateur | Côté équipe Lookout (administration, `STAFF_EMAILS`) |
 |---|---|
-| Comptes, organisations, rôles (propriétaire, admin, analyste, lecteur), invitations | File des produits que le scraping n'a pas pu traiter |
-| Offres et quotas (Essai, Pro, Entreprise) — paiement Stripe à venir | Lancement et suivi des sessions H Company (computer use) |
-| Import Circana et catalogue client : CSV, Excel, JSON, avec correspondance des colonnes | Enregistrement d'un **parcours par site** : le site passe ensuite en automatique pour tous |
-| Périmètre : zones, sites, marques exclues, produits ciblés | Saisie manuelle d'une fiche, relance, mise à l'écart |
-| Rapport : synthèse rédigée, audit du catalogue, marché (prix, ventes, gammes de teintes, formats), tendances, fiches filtrables avec lien source | Catalogue de sites (statut, parcours, dernier succès), demandes des clients |
-| Historique, relance d'une analyse, lien de partage en lecture seule, export PDF | Offre de chaque client, volume d'appels par service et par client |
-| Catalogue de sites et demande d'ajout | |
+| Comptes (Supabase Auth + `profiles`), espace de travail unique partagé | File de l'équipe (`enrichment_jobs`) : fiches que le scraping n'a pas complétées |
+| Import Circana (archivé dans `circana_imports` / `circana_sales` et le bucket `circana-uploads`) | Lancement et suivi des sessions H Company (computer use) |
+| Catalogue client importé ou réutilisé (`catalog_products`) | Saisie manuelle d'une fiche, mise à l'écart |
+| Périmètre : zones, sites, marques exclues, produits ciblés | Sites et parcours de computer use (définis dans `src/lib/sites.ts`) |
+| Rapport : synthèse rédigée, audit du catalogue, marché, tendances, fiches filtrables avec lien source | Utilisateurs inscrits, statistiques de collecte |
+| Historique, relance, lien de partage en lecture seule, export PDF | |
+| Page Offres indicative (paiement Stripe à venir) | |
 
 ## Comment une analyse se déroule
 
@@ -53,7 +53,7 @@ Import Circana (+ catalogue) ─► une ligne par produit et par zone (les péri
                              Sinon ─► file de l'équipe ─► computer use ou saisie, puis parcours enregistré
                                          │
    Conversion en euros (BCE) · familles de teintes · rapprochement avec le catalogue client (embeddings HF)
-   · tendances (dataset HF) · analyse rédigée par un LLM Hugging Face à partir de chiffres calculés
+   · tendances (trend_posts, sinon dataset HF) · analyse rédigée par un LLM Hugging Face à partir de chiffres calculés
                                          ▼
                      Rapport (recalculé automatiquement quand l'équipe débloque un produit)
 ```
@@ -66,7 +66,7 @@ La page rapport fait avancer l'analyse par petites étapes (`/api/reports/[id]/s
 ## Mode démo
 
 Sans clés, chaque service renvoie des données fictives (bandeau en haut de page) :
-- **Base** : fichier local `.data/db.json` ; connexion avec n'importe quel e-mail ; le premier compte créé a accès à l'administration.
+- **Base** : fichier local `.data/db.json` qui reproduit les tables Supabase ; connexion avec n'importe quel e-mail.
 - **Linkup / H Company / Hugging Face** : fiches et sessions simulées ; environ 1 produit sur 4 part dans la file de l'équipe pour montrer ce parcours.
 
 ## Démarrage local
@@ -84,10 +84,12 @@ Les fichiers d'exemple (`public/exemple-*.csv`) contiennent des **chiffres ficti
 ## Mise en production
 
 ### 1. Supabase
-1. Créez un projet, ouvrez **SQL Editor**, exécutez `supabase/schema.sql` (tables, sécurité RLS, catalogue de départ).
-2. **Authentication > Providers** : e-mail activé. Pour tester vite, vous pouvez désactiver la confirmation par e-mail.
-3. Renseignez `SUPABASE_URL`, `SUPABASE_ANON_KEY` et `SUPABASE_SERVICE_ROLE_KEY`.
-4. Ajoutez vos e-mails d'équipe dans `STAFF_EMAILS`.
+L'application utilise **le schéma déjà en place** dans le projet Supabase (aucune migration à exécuter) :
+voir `supabase/SCHEMA.md` pour la correspondance entre les tables et l'application.
+1. **Authentication > Providers** : e-mail activé.
+2. Renseignez `SUPABASE_URL`, `SUPABASE_ANON_KEY` et `SUPABASE_SERVICE_ROLE_KEY` (Project Settings > API).
+3. Ajoutez vos e-mails d'équipe dans `STAFF_EMAILS`.
+4. Démo en ligne : `DEMO_LOGIN=true` et un `DEMO_PASSWORD` (le compte `DEMO_EMAIL` est créé à la première connexion).
 
 ### 2. Services
 - `LINKUP_API_KEY` (app.linkup.so), `HAI_API_KEY` (hub.hcompany.ai, vérifiez la région), `HF_TOKEN` (Inference Providers).
@@ -106,18 +108,22 @@ Gardez la logique (`src/lib/`, `src/app/api/`) hors de v0 et fusionnez ses pull 
 | Dossier | Contenu |
 |---|---|
 | `src/lib/agents/` | `discovery.ts` (Linkup), `scraper.ts`, `extractor.ts` (Linkup), `navigator.ts` (H Company), `demo.ts` |
-| `src/lib/pipeline.ts` | Enchaînement des étapes, file de l'équipe, finalisation |
+| `src/lib/pipeline.ts` | Enchaînement des étapes, file de l'équipe, finalisation (analyses, growth_opportunities) |
+| `src/lib/market.ts`, `imports.ts` | Écriture des fiches (market_*), de la file (enrichment_jobs), des imports Circana et du catalogue |
+| `src/lib/sites.ts` | Sites surveillés et parcours de computer use |
 | `src/lib/analysis.ts` | Statistiques, audit du catalogue, analyse rédigée |
 | `src/lib/tabular.ts`, `excel.ts` | Import CSV / Excel / JSON et correspondance des colonnes |
 | `src/lib/shades.ts`, `matching.ts`, `trends.ts` | Familles de teintes, rapprochement, tendances |
-| `src/lib/auth.ts`, `repo.ts`, `quota.ts`, `plans.ts` | Comptes, accès aux données, quotas et offres |
+| `src/lib/auth.ts`, `repo.ts` | Comptes, accès aux données (Supabase ou fichier local en démo) |
 | `src/app/api/` | Routes API (client, partage, administration) |
-| `supabase/schema.sql` | Schéma complet et règles RLS |
+| `supabase/SCHEMA.md` | Correspondance avec le schéma Supabase existant |
 | `tests/` | Tests unitaires (Vitest) |
 
 ## À savoir avant le lancement commercial
 
-- **Stripe** n'est pas branché : l'offre se change dans Administration > Clients. Le champ `plan` et les quotas sont prêts.
+- **Stripe** n'est pas branché et le schéma n'a ni organisations ni quotas : la page Offres est indicative.
+- **Sécurité Supabase** : plusieurs tables ont une règle RLS `anon_full` qui donne lecture et écriture à toute personne
+  disposant de la clé publique (anon). L'application n'en a pas besoin (elle passe par le serveur) : à restreindre avant la mise en ligne.
 - **Tendances sociales** : renseignez un dataset sous licence (`HF_TRENDS_DATASET`) ou une source partenaire ; vérifiez le RGPD.
 - **Juridique** : conditions d'utilisation des sites collectés, CGV du service, RGPD.
 - Les formats exacts des réponses Linkup et H Company sont à valider sur vos premiers produits réels ; le code accepte plusieurs variantes.

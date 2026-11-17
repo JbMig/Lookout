@@ -10,15 +10,20 @@ function LoginForm() {
   const next = useSearchParams().get("next") || "/";
   const { me, refresh } = useSession();
   const [mode, setMode] = useState<"login" | "signup">("login");
-  const [demo, setDemo] = useState<boolean | null>(null);
+  const [demo, setDemo] = useState<boolean | null>(null); // base en mode démo (pas de mot de passe)
+  const [oneClick, setOneClick] = useState(false); // connexion en un clic disponible
+  const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ email: "", password: "", fullName: "", orgName: "" });
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    api<{ demo: { db: boolean } }>("/api/status")
-      .then((s) => setDemo(s.demo.db))
+    api<{ demo: { db: boolean }; demoLogin: boolean }>("/api/status")
+      .then((s) => {
+        setDemo(s.demo.db);
+        setOneClick(s.demoLogin);
+      })
       .catch(() => setDemo(false));
   }, []);
   useEffect(() => {
@@ -31,6 +36,16 @@ function LoginForm() {
     setBusy(true);
     try {
       await api("/api/auth/demo", { method: "POST" });
+      // On vérifie que la session est bien retrouvée avant de quitter la page.
+      try {
+        await api("/api/me");
+      } catch {
+        throw new Error(
+          demo
+            ? "La connexion a été acceptée mais la session est introuvable : sur Vercel, le mode démo ne conserve pas les données entre les requêtes. Branchez Supabase pour la démo en ligne."
+            : "La connexion a été acceptée mais la session est introuvable. Réessayez.",
+        );
+      }
       await refresh();
     } catch (err) {
       setError((err as Error).message);
@@ -69,19 +84,24 @@ function LoginForm() {
   return (
     <div className="mx-auto max-w-md space-y-6">
       <div className="text-center">
-        <h1 className="text-2xl font-semibold">{demo ? "Connexion" : mode === "login" ? "Connexion" : "Créer un compte"}</h1>
+        <h1 className="text-2xl font-semibold">{oneClick && !showForm ? "Connexion" : mode === "login" ? "Connexion" : "Créer un compte"}</h1>
         <p className="mt-1 text-sm text-ink-soft">Du fichier Circana au rapport de marché, en un clic.</p>
       </div>
       {demo === null ? (
         <p className="text-center text-ink-soft">Chargement…</p>
-      ) : demo ? (
+      ) : oneClick && !showForm ? (
         <Card>
           <div className="space-y-4 text-center">
-            <p className="text-sm text-ink-soft">Version de démonstration : aucun identifiant n&apos;est nécessaire.</p>
+            <p className="text-sm text-ink-soft">Accès de démonstration : aucun identifiant n&apos;est nécessaire.</p>
             <button type="button" onClick={demoAccess} disabled={busy} className={`${btnPrimary} w-full`}>
               {busy ? "Connexion…" : "Se connecter"}
             </button>
             <ErrorText>{error}</ErrorText>
+            {!demo && (
+              <button type="button" className="text-sm text-ink-soft underline underline-offset-2" onClick={() => setShowForm(true)}>
+                Se connecter avec un autre compte
+              </button>
+            )}
           </div>
         </Card>
       ) : (
@@ -109,7 +129,7 @@ function LoginForm() {
         </form>
       </Card>
       )}
-      {demo === false && (
+      {demo === false && (!oneClick || showForm) && (
       <p className="text-center text-sm text-ink-soft">
         {mode === "login" ? "Pas encore de compte ? " : "Déjà un compte ? "}
         <button className="font-medium text-ink underline underline-offset-2" onClick={() => setMode(mode === "login" ? "signup" : "login")}>

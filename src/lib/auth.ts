@@ -2,7 +2,8 @@ import "server-only";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { randomUUID } from "crypto";
-import { config, isDemo } from "./config";
+import { config, demoLogin as demoCfg, isDemo } from "./config";
+import { createClient } from "@supabase/supabase-js";
 import { repo } from "./repo";
 import type { InvitationRow, MembershipRow, OrganizationRow, ProfileRow, Role, SessionUser } from "./types";
 
@@ -15,7 +16,26 @@ import type { InvitationRow, MembershipRow, OrganizationRow, ProfileRow, Role, S
 const DEMO_COOKIE = "lk_demo_uid";
 
 /** Compte utilisé par le bouton de connexion en un clic (mode démo). */
-export const DEMO_ACCOUNT = { email: "demo@lookout.app", fullName: "Compte démo", orgName: "Lookout Démo" };
+export const DEMO_ACCOUNT = { email: demoCfg.email, fullName: "Compte démo", orgName: "Lookout Démo" };
+
+/** La connexion en un clic est-elle disponible ? */
+export function demoLoginEnabled() {
+  return isDemo.db || (demoCfg.forced && !!demoCfg.password);
+}
+
+/**
+ * Avec Supabase : crée le compte démo s'il n'existe pas (confirmé d'office), puis ouvre la session.
+ * Renvoie l'identifiant de l'utilisateur.
+ */
+export async function supabaseDemoLogin(): Promise<string> {
+  const admin = createClient(config.supabase.url, config.supabase.serviceKey, { auth: { persistSession: false } });
+  const created = await admin.auth.admin.createUser({ email: demoCfg.email, password: demoCfg.password, email_confirm: true });
+  if (created.error && !/already|registered|exists/i.test(created.error.message)) throw new HttpError(500, created.error.message);
+  const { data, error } = await (await supabaseAuth()).auth.signInWithPassword({ email: demoCfg.email, password: demoCfg.password });
+  if (error || !data.user) throw new HttpError(500, `Connexion démo impossible : ${error?.message ?? "utilisateur introuvable"}`);
+  await ensureAccount(data.user.id, demoCfg.email, DEMO_ACCOUNT.fullName, DEMO_ACCOUNT.orgName);
+  return data.user.id;
+}
 
 export async function supabaseAuth() {
   const store = await cookies();
@@ -34,9 +54,9 @@ export async function supabaseAuth() {
  * En mode démo sans STAFF_EMAILS, le premier compte créé fait partie de l'équipe.
  */
 async function isStaff(userId: string, email: string) {
+  if (demoLoginEnabled() && email.toLowerCase() === DEMO_ACCOUNT.email) return true;
   if (config.staffEmails.length) return config.staffEmails.includes(email.toLowerCase());
   if (!isDemo.db) return false;
-  if (email.toLowerCase() === DEMO_ACCOUNT.email) return true;
   const [first] = await repo().select<ProfileRow>("profiles", { order: ["created_at", "asc"], limit: 1 });
   return first?.id === userId;
 }

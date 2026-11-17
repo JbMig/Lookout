@@ -72,7 +72,7 @@ Sans clés, chaque service renvoie des données fictives (bandeau en haut de pag
 ## Démarrage local
 
 ```bash
-npm install --legacy-peer-deps
+npm install
 cp .env.example .env.local
 npm run dev          # http://localhost:3000
 npm test             # tests unitaires

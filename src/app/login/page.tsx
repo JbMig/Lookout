@@ -25,6 +25,19 @@ function LoginForm() {
     if (me) router.replace(next);
   }, [me, next, router]);
 
+  /** Mode démo : connexion directe au compte de démonstration. */
+  async function demoAccess() {
+    setError(null);
+    setBusy(true);
+    try {
+      await api("/api/auth/demo", { method: "POST" });
+      await refresh();
+    } catch (err) {
+      setError((err as Error).message);
+      setBusy(false);
+    }
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -56,19 +69,24 @@ function LoginForm() {
   return (
     <div className="mx-auto max-w-md space-y-6">
       <div className="text-center">
-        <h1 className="text-2xl font-semibold">{mode === "login" ? "Connexion" : "Créer un compte"}</h1>
+        <h1 className="text-2xl font-semibold">{demo ? "Connexion" : mode === "login" ? "Connexion" : "Créer un compte"}</h1>
         <p className="mt-1 text-sm text-ink-soft">Du fichier Circana au rapport de marché, en un clic.</p>
       </div>
       {demo === null ? (
         <p className="text-center text-ink-soft">Chargement…</p>
+      ) : demo ? (
+        <Card>
+          <div className="space-y-4 text-center">
+            <p className="text-sm text-ink-soft">Version de démonstration : aucun identifiant n&apos;est nécessaire.</p>
+            <button type="button" onClick={demoAccess} disabled={busy} className={`${btnPrimary} w-full`}>
+              {busy ? "Connexion…" : "Se connecter"}
+            </button>
+            <ErrorText>{error}</ErrorText>
+          </div>
+        </Card>
       ) : (
       <Card>
         <form onSubmit={submit} className="space-y-4" noValidate>
-          {demo && (
-            <p className="rounded-md bg-amber/15 p-3 text-sm text-amber-dark">
-              Mode démo : saisissez n&apos;importe quel e-mail, aucun mot de passe n&apos;est vérifié.
-            </p>
-          )}
           {mode === "signup" && (
             <>
               <Field label="Nom complet"><input className={inputCls} value={form.fullName} onChange={set("fullName")} /></Field>
@@ -91,12 +109,14 @@ function LoginForm() {
         </form>
       </Card>
       )}
+      {demo === false && (
       <p className="text-center text-sm text-ink-soft">
         {mode === "login" ? "Pas encore de compte ? " : "Déjà un compte ? "}
         <button className="font-medium text-ink underline underline-offset-2" onClick={() => setMode(mode === "login" ? "signup" : "login")}>
           {mode === "login" ? "Créer un compte" : "Se connecter"}
         </button>
       </p>
+      )}
     </div>
   );
 }

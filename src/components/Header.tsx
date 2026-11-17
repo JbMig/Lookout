@@ -14,8 +14,8 @@ export function Header() {
   const [connecting, setConnecting] = useState(false);
 
   useEffect(() => {
-    api<{ demo: { db: boolean } }>("/api/status")
-      .then((s) => setDemo(s.demo.db))
+    api<{ demoLogin: boolean }>("/api/status")
+      .then((s) => setDemo(s.demoLogin))
       .catch(() => null);
   }, []);
 
@@ -24,6 +24,7 @@ export function Header() {
     setConnecting(true);
     try {
       await api("/api/auth/demo", { method: "POST" });
+      await api("/api/me"); // session bien retrouvée ? sinon on bascule vers la page de connexion
       await refresh();
       router.push("/");
     } catch {

@@ -33,6 +33,16 @@ export const config = {
     .filter(Boolean),
 };
 
+/**
+ * Connexion en un clic au compte de démonstration.
+ * Toujours active sans Supabase ; avec Supabase, il faut DEMO_LOGIN=true et DEMO_PASSWORD.
+ */
+export const demoLogin = {
+  email: (process.env.DEMO_EMAIL ?? "demo@lookout.app").toLowerCase(),
+  password: process.env.DEMO_PASSWORD ?? "",
+  forced: process.env.DEMO_LOGIN === "true",
+};
+
 export const isDemo = {
   db: !config.supabase.url || !config.supabase.serviceKey || !config.supabase.anonKey,
   linkup: !config.linkup.apiKey,

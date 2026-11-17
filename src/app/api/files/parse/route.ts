@@ -2,12 +2,13 @@ import { handle } from "@/lib/http";
 import { requireUser, HttpError } from "@/lib/auth";
 import { CATALOG_FIELDS, CIRCANA_FIELDS, parseCsv, parseJson, suggestMapping, type ParsedTable } from "@/lib/tabular";
 import { parseXlsx } from "@/lib/excel";
+import { uploadToBucket } from "@/lib/storage";
 
 const MAX_BYTES = 8 * 1024 * 1024;
 
 /** Lit un fichier importé et propose la correspondance des colonnes. */
 export const POST = handle(async (req: Request) => {
-  await requireUser("analyst");
+  const user = await requireUser();
   const form = await req.formData();
   const file = form.get("file");
   const kind = form.get("kind") === "catalog" ? "catalog" : "circana";
@@ -27,6 +28,17 @@ export const POST = handle(async (req: Request) => {
   }
   if (!table.rows.length) throw new HttpError(422, "Le fichier ne contient aucune ligne");
 
+  // Le fichier Circana d'origine est archivé dans le bucket privé circana-uploads (si Supabase est branché).
+  const storagePath =
+    kind === "circana"
+      ? await uploadToBucket(
+          "circana-uploads",
+          `${user.userId}/${Date.now()}-${file.name.replace(/[^\w.-]+/g, "_")}`,
+          await file.arrayBuffer(),
+          file.type || "application/octet-stream",
+        )
+      : null;
+
   const fields = kind === "catalog" ? CATALOG_FIELDS : CIRCANA_FIELDS;
-  return { kind, fileName: file.name, headers: table.headers, rows: table.rows, fields, mapping: suggestMapping(table.headers, fields) };
+  return { kind, fileName: file.name, storagePath, headers: table.headers, rows: table.rows, fields, mapping: suggestMapping(table.headers, fields) };
 });

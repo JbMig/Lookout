@@ -1,22 +1,13 @@
 import { chat } from "./hf";
 import { bestMatches, MATCH_THRESHOLD } from "./matching";
 import { withFamilies } from "./shades";
-import type {
-  CatalogInsights,
-  CatalogProductInsight,
-  ClientProductRow,
-  ReportItemRow,
-  ReportStats,
-  ShadeFamily,
-  Trends,
-  Zone,
-} from "./types";
+import type { CatalogInsights, CatalogProductInsight, ClientProduct, ItemView, ReportStats, ShadeFamily, Trends, Zone } from "./types";
 
 const avg = (xs: number[]) => (xs.length ? Math.round((xs.reduce((a, b) => a + b, 0) / xs.length) * 100) / 100 : 0);
 
 /* ---------- Statistiques du marché (calculées, jamais inventées par le LLM) ---------- */
 
-export function computeStats(items: ReportItemRow[]): ReportStats {
+export function computeStats(items: ItemView[]): ReportStats {
   const withProduct = items.filter((i) => i.product);
   const avgPriceEur: Partial<Record<Zone, number>> = {};
   for (const zone of ["US", "EU"] as Zone[]) {
@@ -54,7 +45,7 @@ export function computeStats(items: ReportItemRow[]): ReportStats {
 
 /* ---------- Audit du catalogue client ---------- */
 
-function salesTrend(item: ReportItemRow): CatalogProductInsight["trend"] {
+function salesTrend(item: ItemView): CatalogProductInsight["trend"] {
   const h = (item.circana.history ?? []).filter((x) => x.salesValue !== undefined);
   if (h.length < 2) return "inconnu";
   const prev = h[h.length - 2].salesValue!, last = h[h.length - 1].salesValue!;
@@ -63,11 +54,11 @@ function salesTrend(item: ReportItemRow): CatalogProductInsight["trend"] {
   return change > 0.05 ? "progresse" : change < -0.05 ? "décline" : "stable";
 }
 
-export async function computeCatalog(items: ReportItemRow[], clientProducts: ClientProductRow[]) {
-  if (!clientProducts.length) return { insights: null as CatalogInsights | null, matches: [] as { id: string; itemId: string | null; score: number }[] };
+export async function computeCatalog(items: ItemView[], clientProducts: ClientProduct[]): Promise<CatalogInsights | null> {
+  if (!clientProducts.length) return null;
 
   const candidates = items.map((i) => `${i.circana.brand} ${i.product?.name ?? i.circana.product}`);
-  const results = await bestMatches(clientProducts.map((c) => `${c.data.brand} ${c.data.name}`), candidates);
+  const results = await bestMatches(clientProducts.map((c) => `${c.brand} ${c.name}`), candidates);
 
   const bestSellers = [...items].sort((a, b) => (b.circana.salesValue ?? 0) - (a.circana.salesValue ?? 0)).slice(0, 5);
   const bestShades = avg(bestSellers.filter((i) => i.product).map((i) => i.product!.shades.length));
@@ -75,13 +66,13 @@ export async function computeCatalog(items: ReportItemRow[], clientProducts: Cli
   const products: CatalogProductInsight[] = clientProducts.map((cp, idx) => {
     const r = results[idx];
     const match = r.index >= 0 && r.score >= MATCH_THRESHOLD ? items[r.index] : null;
-    const zone = cp.data.zone ?? match?.circana.zone;
+    const zone = cp.zone ?? match?.circana.zone;
     const zonePrices = items.filter((i) => (!zone || i.circana.zone === zone) && i.product?.priceEur != null).map((i) => i.product!.priceEur!);
     const market = avg(zonePrices);
-    const clientPrice = cp.data.price ?? match?.product?.priceEur ?? null;
-    const shades = cp.data.shadesCount ?? match?.product?.shades.length ?? null;
+    const clientPrice = cp.price ?? match?.product?.priceEur ?? null;
+    const shades = cp.shadesCount ?? match?.product?.shades.length ?? null;
     return {
-      client: cp.data,
+      client: cp,
       matchName: match ? `${match.circana.brand} ${match.product?.name ?? match.circana.product}` : null,
       matchScore: match ? Math.round(r.score * 100) / 100 : null,
       priceGapPct: clientPrice !== null && market ? Math.round(((clientPrice - market) / market) * 100) : null,
@@ -90,21 +81,15 @@ export async function computeCatalog(items: ReportItemRow[], clientProducts: Cli
     };
   });
 
-  const clientBrands = [...new Set(clientProducts.map((c) => c.data.brand))];
   const up = products.filter((p) => p.trend === "progresse").length;
   const down = products.filter((p) => p.trend === "décline").length;
   const above = products.filter((p) => (p.priceGapPct ?? 0) > 10).length;
-  const summary =
-    `${products.length} produits de votre catalogue analysés, ${products.filter((p) => p.matchName).length} retrouvés dans les données du marché. ` +
-    `${up} progressent, ${down} déclinent d'après Circana. ${above} sont positionnés plus de 10 % au-dessus du prix moyen de leur marché.`;
-
   return {
-    insights: { clientBrands, products, summary },
-    matches: clientProducts.map((cp, idx) => {
-      const r = results[idx];
-      const ok = r.index >= 0 && r.score >= MATCH_THRESHOLD;
-      return { id: cp.id, itemId: ok ? items[r.index].id : null, score: Math.round(r.score * 100) / 100 };
-    }),
+    clientBrands: [...new Set(clientProducts.map((c) => c.brand))],
+    products,
+    summary:
+      `${products.length} produits de votre catalogue analysés, ${products.filter((p) => p.matchName).length} retrouvés dans les données du marché. ` +
+      `${up} progressent, ${down} déclinent d'après Circana. ${above} sont positionnés plus de 10 % au-dessus du prix moyen de leur marché.`,
   };
 }
 
@@ -113,7 +98,7 @@ export async function computeCatalog(items: ReportItemRow[], clientProducts: Cli
 export async function writeAnalysis(
   category: string,
   stats: ReportStats,
-  items: ReportItemRow[],
+  items: ItemView[],
   trends: Trends | null,
   catalog: CatalogInsights | null,
 ) {

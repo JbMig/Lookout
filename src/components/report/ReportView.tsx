@@ -1,16 +1,12 @@
 "use client";
 import { useMemo, useState } from "react";
-import type { ClientProductRow, ReportItemRow, ReportRow, Zone } from "@/lib/types";
+import type { ReportBundle, Zone } from "@/lib/types";
 import { Card, Kpi } from "../ui";
 import { ProductCard } from "./ProductCard";
 import { FormatsChart, PriceByBrandChart, SalesByBrandChart, ShadeFamiliesChart } from "./Charts";
 import { fmtEur } from "@/lib/client";
 
-export interface Bundle {
-  report: ReportRow;
-  items: ReportItemRow[];
-  clientProducts: ClientProductRow[];
-}
+export type Bundle = ReportBundle;
 
 const TYPE_LABEL = { actif: "Actifs", format: "Formats", teinte: "Teintes", finition: "Finitions" } as const;
 const TREND = {

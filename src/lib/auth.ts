@@ -1,40 +1,33 @@
 import "server-only";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
+import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "crypto";
 import { config, demoLogin as demoCfg, isDemo } from "./config";
-import { createClient } from "@supabase/supabase-js";
 import { repo } from "./repo";
-import type { InvitationRow, MembershipRow, OrganizationRow, ProfileRow, Role, SessionUser } from "./types";
+import type { ProfileRow, SessionUser } from "./types";
 
 /**
  * Authentification.
- * - Supabase configuré : Supabase Auth (e-mail + mot de passe), session en cookies.
- * - Mode démo : n'importe quel e-mail ouvre une session locale (cookie lk_demo_uid).
+ * - Supabase : Supabase Auth (e-mail + mot de passe). Le profil est créé dans `profiles`
+ *   par le déclencheur `handle_new_user` du projet ; l'application le complète si besoin.
+ * - Mode démo (sans Supabase) : session locale (cookie lk_demo_uid).
+ * Le schéma est mono-client : tous les utilisateurs connectés partagent le même espace.
+ * L'équipe Lookout (administration) est définie par STAFF_EMAILS.
  */
 
 const DEMO_COOKIE = "lk_demo_uid";
 
-/** Compte utilisé par le bouton de connexion en un clic (mode démo). */
-export const DEMO_ACCOUNT = { email: demoCfg.email, fullName: "Compte démo", orgName: "Lookout Démo" };
+export const DEMO_ACCOUNT = { email: demoCfg.email, fullName: "Compte démo" };
 
-/** La connexion en un clic est-elle disponible ? */
 export function demoLoginEnabled() {
   return isDemo.db || (demoCfg.forced && !!demoCfg.password);
 }
 
-/**
- * Avec Supabase : crée le compte démo s'il n'existe pas (confirmé d'office), puis ouvre la session.
- * Renvoie l'identifiant de l'utilisateur.
- */
-export async function supabaseDemoLogin(): Promise<string> {
-  const admin = createClient(config.supabase.url, config.supabase.serviceKey, { auth: { persistSession: false } });
-  const created = await admin.auth.admin.createUser({ email: demoCfg.email, password: demoCfg.password, email_confirm: true });
-  if (created.error && !/already|registered|exists/i.test(created.error.message)) throw new HttpError(500, created.error.message);
-  const { data, error } = await (await supabaseAuth()).auth.signInWithPassword({ email: demoCfg.email, password: demoCfg.password });
-  if (error || !data.user) throw new HttpError(500, `Connexion démo impossible : ${error?.message ?? "utilisateur introuvable"}`);
-  await ensureAccount(data.user.id, demoCfg.email, DEMO_ACCOUNT.fullName, DEMO_ACCOUNT.orgName);
-  return data.user.id;
+export class HttpError extends Error {
+  constructor(public status: number, message: string) {
+    super(message);
+  }
 }
 
 export async function supabaseAuth() {
@@ -49,76 +42,63 @@ export async function supabaseAuth() {
   });
 }
 
-/**
- * Membre de l'équipe Lookout : e-mail listé dans STAFF_EMAILS.
- * En mode démo sans STAFF_EMAILS, le premier compte créé fait partie de l'équipe.
- */
-async function isStaff(userId: string, email: string) {
-  if (demoLoginEnabled() && email.toLowerCase() === DEMO_ACCOUNT.email) return true;
-  if (config.staffEmails.length) return config.staffEmails.includes(email.toLowerCase());
-  if (!isDemo.db) return false;
-  const [first] = await repo().select<ProfileRow>("profiles", { order: ["created_at", "asc"], limit: 1 });
-  return first?.id === userId;
+/** Garantit l'existence du profil (le déclencheur Supabase le crée normalement à l'inscription). */
+export async function ensureProfile(userId: string, email: string, fullName?: string) {
+  const existing = await repo().get<ProfileRow>("profiles", userId);
+  if (!existing) {
+    try {
+      await repo().insert<ProfileRow>("profiles", [{ id: userId, email: email.toLowerCase(), full_name: fullName ?? null }]);
+    } catch {
+      /* créé entre-temps par le déclencheur */
+    }
+  } else if (fullName && !existing.full_name) {
+    await repo().update("profiles", userId, { full_name: fullName });
+  }
 }
 
-/** Crée le profil et l'organisation à la première connexion (ou rattache à une invitation). */
-export async function ensureAccount(userId: string, email: string, fullName?: string, orgName?: string) {
-  const db = repo();
-  const profile = await db.get<ProfileRow>("profiles", userId);
-  if (!profile) await db.insert<ProfileRow>("profiles", [{ id: userId, email: email.toLowerCase(), full_name: fullName ?? null }]);
-
-  const memberships = await db.select<MembershipRow>("memberships", { eq: { user_id: userId } });
-  if (memberships.length) return;
-
-  const invites = await db.select<InvitationRow>("invitations", { eq: { email: email.toLowerCase(), accepted_at: null } });
-  if (invites[0]) {
-    await db.insert<MembershipRow>("memberships", [{ org_id: invites[0].org_id, user_id: userId, role: invites[0].role }]);
-    await db.update("invitations", invites[0].id, { accepted_at: new Date().toISOString() });
-    return;
-  }
-  const domain = email.split("@")[1]?.split(".")[0] ?? "Mon équipe";
-  const [org] = await db.insert<OrganizationRow>("organizations", [
-    { name: orgName?.trim() || domain.charAt(0).toUpperCase() + domain.slice(1), plan: "trial" },
-  ]);
-  await db.insert<MembershipRow>("memberships", [{ org_id: org.id, user_id: userId, role: "owner" }]);
+function isStaff(email: string) {
+  const e = email.toLowerCase();
+  if (demoLoginEnabled() && e === DEMO_ACCOUNT.email) return true;
+  if (config.staffEmails.length) return config.staffEmails.includes(e);
+  return isDemo.db; // en démo sans liste, tout le monde voit l'administration
 }
 
 export async function getSession(): Promise<SessionUser | null> {
-  let userId: string | null = null;
-  let email: string | null = null;
-
   if (isDemo.db) {
-    userId = (await cookies()).get(DEMO_COOKIE)?.value ?? null;
-    if (userId) email = (await repo().get<ProfileRow>("profiles", userId))?.email ?? null;
-  } else {
-    const { data } = await (await supabaseAuth()).auth.getUser();
-    userId = data.user?.id ?? null;
-    email = data.user?.email ?? null;
-    if (userId && email) await ensureAccount(userId, email);
+    const userId = (await cookies()).get(DEMO_COOKIE)?.value;
+    if (!userId) return null;
+    const p = await repo().get<ProfileRow>("profiles", userId);
+    if (!p?.email) return null;
+    return { userId, email: p.email, fullName: p.full_name, isStaff: isStaff(p.email) };
   }
-  if (!userId || !email) return null;
-
-  const [membership] = await repo().select<MembershipRow>("memberships", { eq: { user_id: userId }, order: ["created_at", "asc"] });
-  if (!membership) return null;
-  const org = await repo().get<OrganizationRow>("organizations", membership.org_id);
-  if (!org) return null;
-  return {
-    userId,
-    email,
-    orgId: org.id,
-    orgName: org.name,
-    plan: org.plan,
-    role: membership.role,
-    isStaff: await isStaff(userId, email),
-  };
+  const { data } = await (await supabaseAuth()).auth.getUser();
+  const u = data.user;
+  if (!u?.email) return null;
+  const p = await repo().get<ProfileRow>("profiles", u.id);
+  if (!p) await ensureProfile(u.id, u.email, (u.user_metadata?.full_name as string) ?? undefined);
+  return { userId: u.id, email: u.email, fullName: p?.full_name ?? null, isStaff: isStaff(u.email) };
 }
 
-export async function demoLogin(email: string, fullName?: string, orgName?: string) {
-  const db = repo();
-  const existing = await db.select<ProfileRow>("profiles", { eq: { email: email.toLowerCase() } });
+export async function demoLogin(email: string, fullName?: string) {
+  const existing = await repo().select<ProfileRow>("profiles", { eq: { email: email.toLowerCase() } });
   const userId = existing[0]?.id ?? randomUUID();
-  await ensureAccount(userId, email, fullName, orgName);
+  await ensureProfile(userId, email, fullName);
   (await cookies()).set(DEMO_COOKIE, userId, { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 30 });
+}
+
+/** Avec Supabase : crée le compte démo s'il n'existe pas (e-mail confirmé d'office) et ouvre la session. */
+export async function supabaseDemoLogin() {
+  const admin = createClient(config.supabase.url, config.supabase.serviceKey, { auth: { persistSession: false } });
+  const created = await admin.auth.admin.createUser({
+    email: demoCfg.email,
+    password: demoCfg.password,
+    email_confirm: true,
+    user_metadata: { full_name: DEMO_ACCOUNT.fullName },
+  });
+  if (created.error && !/already|registered|exists/i.test(created.error.message)) throw new HttpError(500, created.error.message);
+  const { data, error } = await (await supabaseAuth()).auth.signInWithPassword({ email: demoCfg.email, password: demoCfg.password });
+  if (error || !data.user) throw new HttpError(500, `Connexion démo impossible : ${error?.message ?? "utilisateur introuvable"}`);
+  await ensureProfile(data.user.id, demoCfg.email, DEMO_ACCOUNT.fullName);
 }
 
 export async function logout() {
@@ -126,20 +106,9 @@ export async function logout() {
   else await (await supabaseAuth()).auth.signOut();
 }
 
-/* ---------- Contrôles d'accès ---------- */
-
-export class HttpError extends Error {
-  constructor(public status: number, message: string) {
-    super(message);
-  }
-}
-
-const RANK: Record<Role, number> = { viewer: 0, analyst: 1, admin: 2, owner: 3 };
-
-export async function requireUser(minRole: Role = "viewer"): Promise<SessionUser> {
+export async function requireUser(): Promise<SessionUser> {
   const s = await getSession();
   if (!s) throw new HttpError(401, "Connexion requise");
-  if (RANK[s.role] < RANK[minRole]) throw new HttpError(403, "Droits insuffisants");
   return s;
 }
 

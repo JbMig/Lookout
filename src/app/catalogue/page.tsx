@@ -1,53 +1,38 @@
 "use client";
 import { useEffect, useState } from "react";
-import { api } from "@/lib/client";
-import { Private, useSession } from "@/components/Session";
+import { api, fmtEur } from "@/lib/client";
+import { Private } from "@/components/Session";
 import { StatusBadge } from "@/components/StatusBadge";
-import { Card, ErrorText, Field, btnPrimary, inputCls } from "@/components/ui";
-import type { SiteRow } from "@/lib/types";
+import { Card, ErrorText } from "@/components/ui";
+import type { Site } from "@/lib/sites";
+import type { ClientProduct } from "@/lib/types";
+
+type SavedProduct = ClientProduct & { id: string; updated_at: string };
 
 function Catalogue() {
-  const { me } = useSession();
-  const [sites, setSites] = useState<SiteRow[] | null>(null);
+  const [sites, setSites] = useState<Site[] | null>(null);
+  const [products, setProducts] = useState<SavedProduct[] | null>(null);
   const [zone, setZone] = useState<"all" | "US" | "EU">("all");
-  const [form, setForm] = useState({ domain: "", name: "", zone: "EU", country: "", type: "revendeur" });
   const [error, setError] = useState<string | null>(null);
-  const [msg, setMsg] = useState<string | null>(null);
 
-  const load = () => api<{ sites: SiteRow[] }>("/api/sites").then((r) => setSites(r.sites));
   useEffect(() => {
-    load().catch((e) => setError(e.message));
+    api<{ sites: Site[] }>("/api/sites").then((r) => setSites(r.sites)).catch((e) => setError(e.message));
+    api<{ products: SavedProduct[] }>("/api/catalog").then((r) => setProducts(r.products)).catch((e) => setError(e.message));
   }, []);
-
-  async function request(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setMsg(null);
-    if (!form.domain.trim() || !form.name.trim()) return setError("Renseignez le domaine et le nom du site.");
-    try {
-      const r = await api<{ alreadyExists?: boolean }>("/api/sites", { method: "POST", json: form });
-      setMsg(r.alreadyExists ? "Ce site est déjà dans le catalogue." : me!.user.isStaff ? "Site ajouté." : "Demande envoyée : l'équipe ajoutera ce site au catalogue.");
-      setForm({ ...form, domain: "", name: "" });
-      await load();
-    } catch (err) {
-      setError((err as Error).message);
-    }
-  }
 
   const list = (sites ?? []).filter((s) => zone === "all" || s.zone === zone);
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Catalogue de sites</h1>
-        <p className="mt-1 text-ink-soft">
-          Les sites déjà cartographiés par l&apos;équipe Lookout. Chaque site ajouté profite à tous les clients.
-        </p>
+        <h1 className="text-2xl font-semibold">Catalogues</h1>
+        <p className="mt-1 text-ink-soft">Les sites surveillés par Lookout et votre catalogue produits enregistré.</p>
       </div>
+      <ErrorText>{error}</ErrorText>
 
       <Card>
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-semibold">{list.length} sites</h2>
+          <h2 className="font-semibold">Sites surveillés ({list.length})</h2>
           <select aria-label="Filtrer par zone" value={zone} onChange={(e) => setZone(e.target.value as typeof zone)} className="rounded-md border border-line bg-paper px-2 py-1.5 text-sm">
             <option value="all">Toutes les zones</option>
             <option value="US">États-Unis</option>
@@ -58,48 +43,51 @@ function Catalogue() {
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="text-ink-soft">
-              <tr>
-                <th className="py-2 font-medium">Site</th><th className="py-2 font-medium">Zone</th>
-                <th className="py-2 font-medium">Type</th><th className="py-2 font-medium">Catégories</th><th className="py-2 font-medium">Méthode</th>
-              </tr>
+              <tr><th className="py-2 pr-4">Site</th><th className="pr-4">Zone</th><th className="pr-4">Type</th><th className="pr-4">Catégories</th><th>Méthode</th></tr>
             </thead>
             <tbody>
               {list.map((s) => (
-                <tr key={s.id} className="border-t border-line">
-                  <td className="py-2"><span className="font-medium">{s.name}</span> <span className="text-ink-soft">{s.domain}</span></td>
-                  <td className="py-2">{s.zone}{s.country ? ` · ${s.country}` : ""}</td>
-                  <td className="py-2 capitalize">{s.type}</td>
-                  <td className="py-2">{s.categories.join(", ") || "—"}</td>
-                  <td className="py-2"><StatusBadge status={s.status} /></td>
+                <tr key={s.domain} className="border-t border-line">
+                  <td className="py-2 pr-4"><span className="font-medium">{s.name}</span> <span className="text-ink-soft">{s.domain}</span></td>
+                  <td className="pr-4">{s.zone} · {s.country}</td>
+                  <td className="pr-4">{s.type}</td>
+                  <td className="pr-4">{s.categories.join(", ")}</td>
+                  <td><StatusBadge status={s.method} /></td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+        <p className="mt-3 text-xs text-ink-soft">
+          La liste des sites est définie dans le code de Lookout (src/lib/sites.ts) : pour en ajouter un, contactez l&apos;équipe.
+        </p>
       </Card>
 
       <Card>
-        <h2 className="mb-3 font-semibold">{me!.user.isStaff ? "Ajouter un site" : "Demander l'ajout d'un site"}</h2>
-        <form onSubmit={request} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          <Field label="Domaine"><input className={inputCls} placeholder="ex. sephora.de" value={form.domain} onChange={(e) => setForm({ ...form, domain: e.target.value })} /></Field>
-          <Field label="Nom"><input className={inputCls} placeholder="ex. Sephora Allemagne" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
-          <Field label="Zone">
-            <select className={inputCls} value={form.zone} onChange={(e) => setForm({ ...form, zone: e.target.value })}>
-              <option value="EU">Europe</option><option value="US">États-Unis</option>
-            </select>
-          </Field>
-          <Field label="Pays"><input className={inputCls} value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} /></Field>
-          <Field label="Type">
-            <select className={inputCls} value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
-              <option value="revendeur">Revendeur</option><option value="marque">Site de marque</option><option value="marketplace">Marketplace</option>
-            </select>
-          </Field>
-          <div className="sm:col-span-2 lg:col-span-5">
-            <ErrorText>{error}</ErrorText>
-            {msg && <p className="text-sm text-ok">{msg}</p>}
-            <button className={`${btnPrimary} mt-2`}>{me!.user.isStaff ? "Ajouter" : "Envoyer la demande"}</button>
+        <h2 className="mb-1 font-semibold">Votre catalogue ({products?.length ?? "…"} produits)</h2>
+        <p className="mb-4 text-sm text-ink-soft">Mis à jour à chaque import de catalogue lors d&apos;une analyse, et réutilisable sans nouvel import.</p>
+        {products && !products.length && <p className="text-sm text-ink-soft">Aucun produit enregistré pour l&apos;instant.</p>}
+        {!!products?.length && (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="text-ink-soft">
+                <tr><th className="py-2 pr-4">Produit</th><th className="pr-4">SKU</th><th className="pr-4">Zone</th><th className="pr-4">Prix</th><th className="pr-4">Teintes</th><th>Statut</th></tr>
+              </thead>
+              <tbody>
+                {products.map((p) => (
+                  <tr key={p.id} className="border-t border-line">
+                    <td className="py-2 pr-4"><span className="font-medium">{p.brand}</span> {p.name}</td>
+                    <td className="pr-4 text-ink-soft">{p.sku ?? "—"}</td>
+                    <td className="pr-4">{p.zone ?? "—"}</td>
+                    <td className="pr-4">{p.price != null ? (p.currency === "EUR" || !p.currency ? fmtEur(p.price) : `${p.price} ${p.currency}`) : "—"}</td>
+                    <td className="pr-4">{p.shadesCount ?? "—"}</td>
+                    <td>{p.status ?? "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        </form>
+        )}
       </Card>
     </div>
   );

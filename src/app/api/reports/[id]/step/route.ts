@@ -6,8 +6,7 @@ import { step } from "@/lib/pipeline";
 export const maxDuration = 300;
 
 export const POST = handle(async (_req: Request, ctx: RouteContext<"/api/reports/[id]/step">) => {
-  const user = await requireUser();
+  await requireUser();
   const { id } = await ctx.params;
-  await loadReport(id, user);
-  return reportBundle(await step(id));
+  return reportBundle(await step(await loadReport(id)));
 });

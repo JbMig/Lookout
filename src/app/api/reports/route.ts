@@ -1,27 +1,38 @@
+import { randomUUID } from "crypto";
 import { z } from "zod";
 import { body, handle } from "@/lib/http";
 import { requireUser, HttpError } from "@/lib/auth";
 import { repo } from "@/lib/repo";
-import { checkQuota } from "@/lib/quota";
 import { normalize } from "@/lib/matching";
+import { saveCircanaImport, upsertCatalog } from "@/lib/imports";
+import { toView } from "@/lib/reports";
 import { CATALOG_FIELDS, CIRCANA_FIELDS, missingRequired, toCircanaRows, toClientProducts } from "@/lib/tabular";
-import type { ClientProductRow, ReportItemRow, ReportRow } from "@/lib/types";
+import type { CatalogProductRow, ReportDbRow, StoredItem } from "@/lib/types";
+
+/** Nombre maximum de lignes Circana enrichies par analyse. */
+const MAX_PRODUCTS = 300;
 
 export const GET = handle(async () => {
-  const user = await requireUser();
-  const reports = await repo().select<ReportRow>("reports", { eq: { org_id: user.orgId }, order: ["created_at", "desc"] });
+  await requireUser();
+  const reports = await repo().select<ReportDbRow>("reports", { eq: { type: "dashboard" }, order: ["created_at", "desc"], limit: 200 });
   return {
-    reports: reports.map((r) => ({
-      id: r.id, name: r.name, category: r.category, status: r.status, created_at: r.created_at,
-      params: r.params, productCount: r.stats?.productCount ?? null, completeCount: r.stats?.completeCount ?? null,
-      awaitingTeam: r.stats?.awaitingTeam ?? null,
-    })),
+    reports: reports.map((r) => {
+      const v = toView(r);
+      return {
+        id: v.id, name: v.name, category: v.category, status: v.status, created_at: v.created_at, params: v.params,
+        productCount: v.stats?.productCount ?? r.data?.items?.length ?? null,
+        completeCount: v.stats?.completeCount ?? null,
+        awaitingTeam: v.stats?.awaitingTeam ?? null,
+      };
+    }),
   };
 });
 
 const Table = z.object({
   rows: z.array(z.record(z.string(), z.string())).max(2000),
   mapping: z.record(z.string(), z.string().nullable()),
+  fileName: z.string().max(200).default("import"),
+  storagePath: z.string().max(400).nullable().optional(),
 });
 
 const Body = z.object({
@@ -36,45 +47,55 @@ const Body = z.object({
   }),
   circana: Table,
   catalog: Table.optional(),
+  /** Sans fichier catalogue : réutiliser le catalogue déjà enregistré. */
+  useSavedCatalog: z.boolean().default(false),
 });
 
 export const POST = handle(async (req: Request) => {
-  const user = await requireUser("analyst");
+  const user = await requireUser();
   const input = Body.parse(await body(req));
-  const maxProducts = await checkQuota(user);
 
   const missing = missingRequired(input.circana.mapping, CIRCANA_FIELDS);
   if (missing.length) throw new HttpError(400, `Colonnes Circana à associer : ${missing.join(", ")}`);
 
+  const all = toCircanaRows(input.circana.rows, input.circana.mapping);
   const excluded = new Set(input.params.excludedBrands.map(normalize));
   const focusTerms = normalize(input.params.focus).split(" ").filter((w) => w.length > 2);
-  let rows = toCircanaRows(input.circana.rows, input.circana.mapping)
-    .filter((r) => input.params.zones.includes(r.zone))
-    .filter((r) => !excluded.has(normalize(r.brand)));
+  let rows = all.filter((r) => input.params.zones.includes(r.zone)).filter((r) => !excluded.has(normalize(r.brand)));
   if (input.params.focusOnly && focusTerms.length) {
     rows = rows.filter((r) => focusTerms.some((t) => normalize(`${r.brand} ${r.product}`).includes(t)));
   }
   if (!rows.length) throw new HttpError(400, "Aucune ligne Circana ne correspond aux critères (zones, exclusions, focus).");
-  const truncated = rows.length > maxProducts;
-  rows = rows.slice(0, maxProducts);
+  const truncated = rows.length > MAX_PRODUCTS;
+  rows = rows.slice(0, MAX_PRODUCTS);
 
-  let catalogRows: ReturnType<typeof toClientProducts> = [];
+  let catalogProductIds: string[] = [];
   if (input.catalog?.rows.length) {
     const miss = missingRequired(input.catalog.mapping, CATALOG_FIELDS);
     if (miss.length) throw new HttpError(400, `Colonnes du catalogue à associer : ${miss.join(", ")}`);
-    catalogRows = toClientProducts(input.catalog.rows, input.catalog.mapping).slice(0, 500);
+    catalogProductIds = await upsertCatalog(toClientProducts(input.catalog.rows, input.catalog.mapping).slice(0, 500), input.category);
+  } else if (input.useSavedCatalog) {
+    const saved = await repo().select<CatalogProductRow>("catalog_products", { limit: 500 });
+    catalogProductIds = saved.filter((c) => c.status !== "discontinued").map((c) => c.id);
   }
 
-  const db = repo();
-  const [report] = await db.insert<ReportRow>("reports", [
-    { org_id: user.orgId, created_by: user.userId, name: input.name, category: input.category, params: input.params, status: "collecting" },
+  // Tout le fichier Circana est historisé, pas seulement les lignes retenues.
+  const circanaImportId = await saveCircanaImport(input.circana.fileName, all, user.userId, input.circana.storagePath ?? null);
+
+  const now = new Date().toISOString();
+  const items: StoredItem[] = rows.map((circana, position) => ({
+    id: randomUUID(), position, circana, status: "pending", method: null, siteDomain: null,
+    marketProductId: null, jobId: null, error: null, updatedAt: now,
+  }));
+  const [report] = await repo().insert<ReportDbRow>("reports", [
+    {
+      title: input.name,
+      type: "dashboard",
+      status: "generating",
+      config: { category: input.category, params: input.params, circanaImportId, catalogProductIds },
+      data: { phase: "collecting", items },
+      created_by: user.userId,
+    },
   ]);
-  await db.insert<ReportItemRow>(
-    "report_items",
-    rows.map((circana, position) => ({ report_id: report.id, org_id: user.orgId, position, circana, status: "pending" as const })),
-  );
-  if (catalogRows.length) {
-    await db.insert<ClientProductRow>("client_products", catalogRows.map((data) => ({ report_id: report.id, org_id: user.orgId, data })));
-  }
-  return { id: report.id, products: rows.length, truncated, maxProducts };
+  return { id: report.id, products: rows.length, truncated, maxProducts: MAX_PRODUCTS };
 });

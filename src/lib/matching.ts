@@ -68,3 +68,13 @@ export async function bestMatches(queries: string[], candidates: string[]) {
 }
 
 export const MATCH_THRESHOLD = isDemo.hf ? 0.34 : 0.72;
+
+/** Dimension des colonnes `embedding` du schéma Supabase (vector(768)). */
+export const EMBEDDING_DIMS = 768;
+
+/** Embedding d'un texte, seulement s'il a la dimension attendue par la base. */
+export async function embedOne(text: string): Promise<number[] | null> {
+  const out = await embed([text]);
+  const v = out?.[0];
+  return v && v.length === EMBEDDING_DIMS ? v : null;
+}

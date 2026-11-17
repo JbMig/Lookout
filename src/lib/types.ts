@@ -1,13 +1,12 @@
 /* =========================================================================
-   Types du domaine. Les lignes de base de données sont en snake_case
-   (identiques dans Supabase et dans le stockage local du mode démo).
+   Types du domaine.
+   Les « Row » correspondent exactement aux tables du projet Supabase
+   (schéma existant, non modifié par l'application).
    ========================================================================= */
 
 export type Zone = "US" | "EU";
-export type Role = "owner" | "admin" | "analyst" | "viewer";
-export type PlanId = "trial" | "pro" | "enterprise";
 
-/* ---------- Fiches produits (stockées en JSON) ---------- */
+/* ---------- Fiches produits ---------- */
 
 export interface ProductFormat {
   size: string;
@@ -15,13 +14,13 @@ export interface ProductFormat {
   currency?: string;
 }
 
+export type ShadeFamily = "Rose" | "Pêche / corail" | "Rouge" | "Baie / prune" | "Mauve" | "Nude / brun" | "Autre";
+
 export interface ProductShade {
   name: string;
   hex?: string;
   family?: ShadeFamily;
 }
-
-export type ShadeFamily = "Rose" | "Pêche / corail" | "Rouge" | "Baie / prune" | "Mauve" | "Nude / brun" | "Autre";
 
 export interface ProductSheet {
   name: string;
@@ -37,7 +36,7 @@ export interface ProductSheet {
   sourceUrl: string | null;
 }
 
-/** Ligne Circana normalisée. */
+/** Ligne Circana normalisée (une par produit et par zone, périodes regroupées). */
 export interface CircanaRow {
   brand: string;
   product: string;
@@ -46,12 +45,12 @@ export interface CircanaRow {
   salesValue?: number;
   units?: number;
   avgPrice?: number;
-  /** Ventes par période quand le fichier en contient plusieurs (la ligne garde la plus récente). */
   history?: { period: string; salesValue?: number; units?: number }[];
 }
 
-/** Produit du catalogue interne du client, normalisé. */
+/** Produit du catalogue du client, normalisé. */
 export interface ClientProduct {
+  sku?: string;
   name: string;
   brand: string;
   zone?: Zone;
@@ -59,140 +58,232 @@ export interface ClientProduct {
   currency?: string;
   shadesCount?: number;
   format?: string;
-  status?: string; // actif, arrêté, lancement…
+  status?: string;
   salesValue?: number;
 }
 
-/* ---------- Lignes de base ---------- */
-
-export interface OrganizationRow {
-  id: string;
-  name: string;
-  plan: PlanId;
-  created_at: string;
-}
+/* ---------- Tables Supabase ---------- */
 
 export interface ProfileRow {
   id: string;
-  email: string;
+  email: string | null;
   full_name: string | null;
+  avatar_url: string | null;
   created_at: string;
 }
 
-export interface MembershipRow {
+export type ReportDbStatus = "draft" | "generating" | "ready" | "failed";
+
+export interface ReportDbRow {
   id: string;
-  org_id: string;
-  user_id: string;
-  role: Role;
+  title: string;
+  type: "dashboard" | "weekly_digest" | "market_comparison";
+  status: ReportDbStatus;
+  config: ReportConfig;
+  data: ReportData;
+  analysis_ids: string[];
+  share_slug: string | null;
+  error_message: string | null;
+  created_by: string | null;
   created_at: string;
+  updated_at: string;
 }
 
-export interface InvitationRow {
+export type MarketStatus = "discovered" | "enriching" | "enriched" | "verified" | "failed";
+
+export interface MarketProductRow {
   id: string;
-  org_id: string;
-  email: string;
-  role: Role;
-  accepted_at: string | null;
-  created_at: string;
-}
-
-export type SiteStatus =
-  | "untested" // jamais testé
-  | "scraping" // scraping automatique fiable
-  | "linkup" // Linkup suffit
-  | "computer_use" // parcours H Company enregistré
-  | "needs_review" // échec signalé à l'équipe
-  | "blocked" // inexploitable
-  | "requested"; // demandé par un client, à ajouter
-
-export type SiteType = "revendeur" | "marque" | "marketplace";
-
-export interface SiteRow {
-  id: string;
-  domain: string;
+  brand: string;
   name: string;
-  zone: Zone;
-  country: string;
-  type: SiteType;
-  categories: string[];
-  status: SiteStatus;
-  cu_instructions: string | null; // parcours de computer use
-  notes: string | null;
-  requested_by_org: string | null;
-  last_success_at: string | null;
+  category: string | null;
+  subcategory: string | null;
+  format: string | null;
+  texture: string | null;
+  product_url: string;
+  source_site: string;
+  country: string | null;
+  locale: string | null;
+  currency: string | null;
+  price: number | null;
+  list_price: number | null;
+  shade_count: number | null;
+  packshot_url: string | null;
+  description: string | null;
+  status: MarketStatus;
+  raw_data: { sheet?: ProductSheet; method?: CollectMethod; zone?: Zone };
+  discovered_at: string;
+  enriched_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MarketShadeRow {
+  id: string;
+  product_id: string;
+  shade_name: string | null;
+  shade_code: string | null;
+  hex_code: string | null;
+  family: string | null;
+  is_bestseller: boolean;
+  image_url: string | null;
+  position: number | null;
+}
+
+export interface MarketIngredientRow {
+  id: string;
+  product_id: string;
+  inci_name: string;
+  function: string | null;
+  is_key_ingredient: boolean;
+  position: number | null;
+}
+
+export type JobStatus = "queued" | "running" | "completed" | "failed";
+
+/**
+ * File de l'équipe. `source` indique l'état du traitement :
+ * "team" (à traiter), "hcompany:<session>" (computer use en cours), "manual", "dismissed".
+ */
+export interface EnrichmentJobRow {
+  id: string;
+  target_type: "market_product" | "catalog_product";
+  target_id: string;
+  source: string | null;
+  status: JobStatus;
+  attempts: number;
+  error_message: string | null;
+  started_at: string | null;
+  finished_at: string | null;
   created_at: string;
 }
+
+export interface CircanaImportRow {
+  id: string;
+  filename: string;
+  storage_path: string | null;
+  status: "pending" | "processing" | "completed" | "failed";
+  period_start: string | null;
+  period_end: string | null;
+  row_count: number;
+  error_message: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface CircanaSaleRow {
+  id: number;
+  import_id: string;
+  period: string;
+  retailer: string | null;
+  channel: string | null;
+  country: string | null;
+  region: string | null;
+  brand: string | null;
+  product_name: string;
+  segment: string | null;
+  subsegment: string | null;
+  units: number | null;
+  revenue: number | null;
+  avg_price: number | null;
+  currency: string;
+  product_key: string | null;
+  raw: Record<string, unknown>;
+}
+
+export interface CatalogProductRow {
+  id: string;
+  sku: string | null;
+  name: string;
+  brand: string | null;
+  category: string | null;
+  subcategory: string | null;
+  range_name: string | null;
+  format: string | null;
+  status: "active" | "discontinued" | "coming_soon";
+  launch_date: string | null;
+  price: number | null;
+  currency: string;
+  description: string | null;
+  image_url: string | null;
+  attributes: { zone?: Zone; shadesCount?: number; salesValue?: number; statusLabel?: string };
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AnalysisRow {
+  id: string;
+  type: "catalog_audit" | "market_comparison" | "growth_potential";
+  status: "queued" | "running" | "completed" | "failed";
+  params: Record<string, unknown>;
+  result: Record<string, unknown>;
+  error_message: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+}
+
+export interface GrowthOpportunityRow {
+  id: string;
+  analysis_id: string;
+  kind: "price_gap" | "shade_gap" | "format_gap" | "segment_gap" | "winner_to_benchmark";
+  title: string;
+  description: string | null;
+  score: number | null;
+  estimated_impact: Record<string, unknown>;
+  refs: Record<string, unknown>;
+}
+
+export interface TrendPostRow {
+  id: string;
+  platform: "tiktok" | "instagram";
+  post_url: string;
+  caption: string | null;
+  hashtags: string[];
+  views: number | null;
+  posted_at: string | null;
+}
+
+/* ---------- Contenu d'un rapport (reports.config / reports.data) ---------- */
 
 export interface AnalysisParams {
   zones: Zone[];
-  siteIds: string[]; // vide = tous les sites actifs des zones choisies
+  siteIds: string[]; // domaines des sites retenus ; vide = tous les sites actifs des zones
   excludedBrands: string[];
-  focus: string; // produits ou mots-clés ciblés
-  focusOnly: boolean; // ne garder que les lignes Circana qui contiennent le focus
+  focus: string;
+  focusOnly: boolean;
 }
 
-export type ReportStatus = "collecting" | "analyzing" | "done" | "failed";
-
-export interface ReportRow {
-  id: string;
-  org_id: string;
-  created_by: string;
-  name: string;
+export interface ReportConfig {
   category: string;
   params: AnalysisParams;
-  status: ReportStatus;
-  stats: ReportStats | null;
-  analysis: string | null;
-  trends: Trends | null;
-  catalog: CatalogInsights | null;
-  share_token: string | null;
-  error: string | null;
-  created_at: string;
+  circanaImportId: string | null;
+  catalogProductIds: string[];
 }
 
-export type ItemStatus =
-  | "pending"
-  | "collecting"
-  | "navigating" // session H Company en cours
-  | "awaiting_team" // signalé à l'équipe (scraping impossible)
-  | "done"
-  | "partial"
-  | "failed";
-
+export type ItemStatus = "pending" | "collecting" | "navigating" | "awaiting_team" | "done" | "partial" | "failed";
 export type CollectMethod = "scraping" | "linkup" | "hcompany" | "manual" | "demo";
 
-export interface ReportItemRow {
+/** Une ligne Circana à enrichir, stockée dans reports.data.items. */
+export interface StoredItem {
   id: string;
-  report_id: string;
-  org_id: string;
   position: number;
   circana: CircanaRow;
   status: ItemStatus;
   method: CollectMethod | null;
-  site_domain: string | null;
-  session_id: string | null;
-  product: ProductSheet | null;
+  siteDomain: string | null;
+  marketProductId: string | null;
+  jobId: string | null;
   error: string | null;
-  updated_at: string;
+  updatedAt: string;
 }
 
-export interface ClientProductRow {
-  id: string;
-  report_id: string;
-  org_id: string;
-  data: ClientProduct;
-  match_item_id: string | null;
-  match_score: number | null;
-}
-
-export interface AgentRunRow {
-  id: string;
-  org_id: string | null;
-  report_id: string | null;
-  service: "linkup" | "hcompany" | "huggingface" | "scraping";
-  action: string;
-  ok: boolean;
-  created_at: string;
+export interface ReportData {
+  phase?: "collecting" | "analyzing";
+  items?: StoredItem[];
+  stats?: ReportStats | null;
+  analysis?: string | null;
+  trends?: Trends | null;
+  catalog?: CatalogInsights | null;
 }
 
 /* ---------- Résultats d'analyse ---------- */
@@ -226,8 +317,8 @@ export interface CatalogProductInsight {
   client: ClientProduct;
   matchName: string | null;
   matchScore: number | null;
-  priceGapPct: number | null; // prix client vs moyenne du marché (même zone)
-  shadesGap: number | null; // nb de teintes client - moyenne des best-sellers
+  priceGapPct: number | null;
+  shadesGap: number | null;
   trend: "progresse" | "décline" | "stable" | "inconnu";
 }
 
@@ -237,14 +328,48 @@ export interface CatalogInsights {
   summary: string;
 }
 
+/* ---------- Vues renvoyées à l'interface ---------- */
+
+export type ReportStatus = "collecting" | "analyzing" | "done" | "failed";
+
+export interface ReportView {
+  id: string;
+  name: string;
+  category: string;
+  status: ReportStatus;
+  params: AnalysisParams;
+  stats: ReportStats | null;
+  analysis: string | null;
+  trends: Trends | null;
+  catalog: CatalogInsights | null;
+  share_token: string | null;
+  error: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface ItemView {
+  id: string;
+  position: number;
+  circana: CircanaRow;
+  status: ItemStatus;
+  method: CollectMethod | null;
+  site_domain: string | null;
+  product: ProductSheet | null;
+  error: string | null;
+  updated_at: string;
+}
+
+export interface ReportBundle {
+  report: ReportView;
+  items: ItemView[];
+}
+
 /* ---------- Session ---------- */
 
 export interface SessionUser {
   userId: string;
   email: string;
-  orgId: string;
-  orgName: string;
-  plan: PlanId;
-  role: Role;
+  fullName: string | null;
   isStaff: boolean;
 }

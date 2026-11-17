@@ -4,6 +4,7 @@ import type { FieldDef, Mapping, RawRow } from "@/lib/tabular";
 
 export interface ImportedTable {
   fileName: string;
+  storagePath?: string | null;
   headers: string[];
   rows: RawRow[];
   fields: FieldDef[];

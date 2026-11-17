@@ -29,6 +29,11 @@ function Report() {
         let b = await api<Bundle>(`/api/reports/${id}`);
         if (!cancelled) setBundle(b);
         if (b.report.share_token) setShareUrl(`${location.origin}/share/${b.report.share_token}`);
+        // Rapport terminé avec des fiches confiées à l'équipe : on récupère leur avancement une fois.
+        if (b.report.status === "done" && b.items.some((i) => i.status === "awaiting_team")) {
+          b = await api<Bundle>(`/api/reports/${id}/step`, { method: "POST" });
+          if (!cancelled) setBundle(b);
+        }
         while (!cancelled && active(b)) {
           b = await api<Bundle>(`/api/reports/${id}/step`, { method: "POST" });
           if (!cancelled) setBundle(b);
@@ -77,8 +82,8 @@ function Report() {
   const { report, items } = bundle;
   const finished = items.filter((i) => !["pending", "collecting"].includes(i.status)).length;
   const progress = items.length ? Math.round((finished / items.length) * 100) : 0;
-  const canEdit = me!.user.role !== "viewer";
-  const canDelete = me!.user.role === "owner" || me!.user.role === "admin";
+  const canEdit = true;
+  const canDelete = me!.user.isStaff || report.created_by === me!.user.userId;
 
   return (
     <div className="space-y-6">

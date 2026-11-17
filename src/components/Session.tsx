@@ -6,8 +6,6 @@ import type { SessionUser } from "@/lib/types";
 
 export interface Me {
   user: SessionUser;
-  plan: { label: string; analysesPerMonth: number | null; productsPerAnalysis: number };
-  usage: { analysesThisMonth: number };
 }
 
 const Ctx = createContext<{ me: Me | null; loading: boolean; refresh: () => Promise<void> }>({

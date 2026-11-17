@@ -29,13 +29,14 @@ function History() {
   }, []);
 
   const filtered = (reports ?? []).filter((r) => `${r.name} ${r.category}`.toLowerCase().includes(q.toLowerCase()));
-  const quota = me!.plan.analysesPerMonth;
+  const month = new Date().toISOString().slice(0, 7);
+  const thisMonth = (reports ?? []).filter((r) => r.created_at.startsWith(month)).length;
 
   return (
     <div className="space-y-8">
       <section className="flex flex-wrap items-center justify-between gap-6 rounded-2xl bg-ink px-8 py-8 text-white">
         <div>
-          <p className="text-sm text-white/70">{me!.user.orgName} · offre {me!.plan.label}</p>
+          <p className="text-sm text-white/70">Bonjour {me!.user.fullName ?? me!.user.email}</p>
           <h1 className="mt-1 text-3xl font-semibold">Du fichier Circana au dashboard décisionnel.</h1>
           <p className="mt-2 max-w-2xl text-white/80">
             Ventes Circana, données produits du web, tendances sociales et votre catalogue, fusionnés dans un rapport sourcé.
@@ -44,8 +45,7 @@ function History() {
         <div className="text-right">
           <p className="text-sm text-white/70">Analyses ce mois-ci</p>
           <p className="text-3xl font-semibold">
-            {me!.usage.analysesThisMonth}
-            <span className="text-lg text-white/60"> / {quota ?? "∞"}</span>
+            {reports ? thisMonth : "…"}
           </p>
           <Link href="/new" className="mt-3 inline-block rounded-md bg-amber px-5 py-2.5 font-medium text-ink hover:bg-amber/90">
             Lancer une analyse

@@ -54,6 +54,7 @@ export const CIRCANA_FIELDS: FieldDef[] = [
 ];
 
 export const CATALOG_FIELDS: FieldDef[] = [
+  { key: "sku", label: "Référence (SKU)", aliases: ["sku", "ref", "référence", "reference", "ean", "code", "code article"] },
   { key: "name", label: "Nom du produit", required: true, aliases: ["name", "nom", "product", "produit", "product name", "nom du produit", "item"] },
   { key: "brand", label: "Marque", required: true, aliases: ["brand", "marque"] },
   { key: "zone", label: "Zone", aliases: ["zone", "market", "region", "région", "pays", "country"] },
@@ -129,6 +130,7 @@ export function toCircanaRows(rows: RawRow[], m: Mapping): CircanaRow[] {
 export function toClientProducts(rows: RawRow[], m: Mapping): ClientProduct[] {
   return rows
     .map((r) => ({
+      sku: pick(r, m, "sku") || undefined,
       name: pick(r, m, "name") ?? "",
       brand: pick(r, m, "brand") ?? "",
       zone: pick(r, m, "zone") ? toZone(pick(r, m, "zone")) : undefined,

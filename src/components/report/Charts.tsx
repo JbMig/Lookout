@@ -1,6 +1,6 @@
 "use client";
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import type { ReportItemRow, ReportStats, ShadeFamily } from "@/lib/types";
+import type { ItemView, ReportStats, ShadeFamily } from "@/lib/types";
 
 const US = "#13233F";
 const EU = "#F2A33A";
@@ -16,7 +16,7 @@ const FAMILY_COLORS: Record<ShadeFamily, string> = {
 
 const Empty = ({ text }: { text: string }) => <p className="py-10 text-center text-sm text-ink-soft">{text}</p>;
 
-export function PriceByBrandChart({ items }: { items: ReportItemRow[] }) {
+export function PriceByBrandChart({ items }: { items: ItemView[] }) {
   const map = new Map<string, { brand: string; US?: number; EU?: number }>();
   for (const i of items) {
     if (i.product?.priceEur == null) continue;
@@ -41,7 +41,7 @@ export function PriceByBrandChart({ items }: { items: ReportItemRow[] }) {
   );
 }
 
-export function SalesByBrandChart({ items }: { items: ReportItemRow[] }) {
+export function SalesByBrandChart({ items }: { items: ItemView[] }) {
   const map = new Map<string, { brand: string; US: number; EU: number }>();
   for (const i of items) {
     if (!i.circana.salesValue) continue;

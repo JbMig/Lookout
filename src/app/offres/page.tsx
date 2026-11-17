@@ -1,5 +1,11 @@
 import Link from "next/link";
-import { PLANS } from "@/lib/plans";
+
+/** Offres affichées à titre indicatif : le paiement (Stripe) et les quotas ne sont pas encore branchés. */
+const PLANS = {
+  trial: { label: "Essai", price: "Gratuit 14 jours", features: ["Quelques analyses pour tester", "Zones US et Europe", "Historique des rapports"] },
+  pro: { label: "Pro", price: "Sur devis", features: ["Analyses régulières", "Croisement avec votre catalogue", "Tendances sociales", "Partage des rapports"] },
+  enterprise: { label: "Entreprise", price: "Sur devis", features: ["Volumes sur mesure", "Sites ajoutés au catalogue", "Accompagnement dédié"] },
+} as const;
 
 const CONTACT = process.env.NEXT_PUBLIC_CONTACT_EMAIL || "contact@example.com";
 

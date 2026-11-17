@@ -3,9 +3,9 @@ import { LoginInput, SignupInput } from "@/lib/schemas";
 
 describe("formulaires de connexion", () => {
   it("accepte un mot de passe vide (mode démo, champ masqué)", () => {
-    const r = SignupInput.parse({ email: "a@b.fr", password: "", fullName: "", orgName: "" });
+    const r = SignupInput.parse({ email: "a@b.fr", password: "", fullName: "" });
     expect(r.password).toBeUndefined();
-    expect(r.orgName).toBeUndefined();
+    expect(r.fullName).toBeUndefined();
   });
   it("conserve un mot de passe saisi, quelle que soit sa longueur", () => {
     expect(SignupInput.parse({ email: "a@b.fr", password: "motdepasse123" }).password).toBe("motdepasse123");

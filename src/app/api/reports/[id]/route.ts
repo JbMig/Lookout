@@ -1,22 +1,26 @@
 import { handle } from "@/lib/http";
-import { requireUser } from "@/lib/auth";
+import { requireStaff, requireUser, HttpError } from "@/lib/auth";
 import { repo } from "@/lib/repo";
 import { loadReport, reportBundle } from "@/lib/reports";
+import type { AnalysisRow } from "@/lib/types";
 
 export const GET = handle(async (_req: Request, ctx: RouteContext<"/api/reports/[id]">) => {
-  const user = await requireUser();
+  await requireUser();
   const { id } = await ctx.params;
-  return reportBundle(await loadReport(id, user));
+  return reportBundle(await loadReport(id));
 });
 
+/** Suppression : l'auteur du rapport ou l'équipe. Les fiches produits (partagées) sont conservées. */
 export const DELETE = handle(async (_req: Request, ctx: RouteContext<"/api/reports/[id]">) => {
-  const user = await requireUser("admin");
+  const user = await requireUser();
   const { id } = await ctx.params;
-  const report = await loadReport(id, user);
+  const report = await loadReport(id);
+  if (report.created_by !== user.userId) await requireStaff().catch(() => { throw new HttpError(403, "Seul l'auteur peut supprimer ce rapport"); });
   const db = repo();
-  // Supabase supprime en cascade ; en mode démo on nettoie à la main.
-  for (const i of await db.select<{ id: string }>("report_items", { eq: { report_id: report.id } })) await db.remove("report_items", i.id);
-  for (const c of await db.select<{ id: string }>("client_products", { eq: { report_id: report.id } })) await db.remove("client_products", c.id);
+  for (const a of report.analysis_ids ?? []) {
+    await db.removeWhere("growth_opportunities", { analysis_id: a });
+    if (await db.get<AnalysisRow>("analyses", a)) await db.remove("analyses", a);
+  }
   await db.remove("reports", report.id);
   return { ok: true };
 });

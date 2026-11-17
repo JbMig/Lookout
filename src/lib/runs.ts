@@ -1,17 +1,7 @@
-import "server-only";
-import { repo } from "./repo";
-import type { AgentRunRow } from "./types";
-
-/** Journalise chaque appel à un service externe (suivi des coûts et des taux d'échec). */
-export async function logRun(
-  service: AgentRunRow["service"],
-  action: string,
-  ok: boolean,
-  ctx: { orgId?: string | null; reportId?: string | null } = {},
-) {
-  try {
-    await repo().insert<AgentRunRow>("agent_runs", [{ service, action, ok, org_id: ctx.orgId ?? null, report_id: ctx.reportId ?? null }]);
-  } catch (e) {
-    console.error("logRun", e);
-  }
+/**
+ * Journalisation des appels aux services externes (visible dans les logs Vercel).
+ * Le schéma Supabase n'a pas de table de suivi des appels.
+ */
+export function logRun(service: "linkup" | "hcompany" | "huggingface" | "scraping", action: string, ok: boolean, reportId?: string) {
+  console.info(JSON.stringify({ lookout: "run", service, action, ok, reportId: reportId ?? null, at: new Date().toISOString() }));
 }

@@ -21,7 +21,7 @@ export const config = {
   hf: {
     token: process.env.HF_TOKEN ?? "",
     model: process.env.HF_MODEL ?? "Qwen/Qwen2.5-72B-Instruct",
-    embeddingModel: process.env.HF_EMBEDDING_MODEL ?? "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+    embeddingModel: process.env.HF_EMBEDDING_MODEL ?? "sentence-transformers/paraphrase-multilingual-mpnet-base-v2", // 768 dimensions, comme la base
     trendsDataset: process.env.HF_TRENDS_DATASET ?? "",
     trendsConfig: process.env.HF_TRENDS_CONFIG ?? "default",
     trendsSplit: process.env.HF_TRENDS_SPLIT ?? "train",

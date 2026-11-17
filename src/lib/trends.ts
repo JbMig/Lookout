@@ -1,12 +1,13 @@
 import { config, isDemo } from "./config";
+import { repo } from "./repo";
 import { chat } from "./hf";
-import type { TrendItem, Trends } from "./types";
+import type { TrendItem, TrendPostRow, Trends } from "./types";
 import demoPosts from "../../data/demo-social-posts.json";
 
 /**
  * Tendances sociales.
- * 1. Source : un dataset Hugging Face de publications (HF_TRENDS_DATASET),
- *    sinon un petit échantillon fictif pour la démo.
+ * 1. Source : la table trend_posts (TikTok / Instagram) si elle contient des publications,
+ *    sinon un dataset Hugging Face (HF_TRENDS_DATASET), sinon un échantillon fictif.
  * 2. Comptage des mentions dans le code (actifs, formats, teintes, finitions).
  * 3. Synthèse rédigée par un LLM Hugging Face.
  */
@@ -43,8 +44,21 @@ const VOCAB: { label: string; type: TrendItem["type"]; terms: string[] }[] = [
   { label: "Nacré", type: "finition", terms: ["shimmer", "nacré"] },
 ];
 
-async function loadPosts(category: string): Promise<{ posts: string[]; source: string }> {
-  const fallback = { posts: demoPosts.posts, source: "Échantillon de démonstration (publications fictives)" };
+async function loadPosts(category: string): Promise<{ posts: string[]; source: string; fromTable: boolean }> {
+  const fallback = { posts: demoPosts.posts, source: "Échantillon de démonstration (publications fictives)", fromTable: false };
+
+  // 1. Publications déjà collectées dans Supabase
+  try {
+    const rows = await repo().select<TrendPostRow>("trend_posts", { order: ["posted_at", "desc"], limit: 1000 });
+    const texts = rows.map((r) => `${r.caption ?? ""} ${(r.hashtags ?? []).map((h) => `#${h}`).join(" ")}`.trim()).filter(Boolean);
+    const term = category.trim().toLowerCase();
+    const focused = term ? texts.filter((t) => t.toLowerCase().includes(term)) : texts;
+    const posts = focused.length >= 10 ? focused : texts;
+    if (posts.length) return { posts, source: `Publications TikTok / Instagram enregistrées (${posts.length})`, fromTable: true };
+  } catch (e) {
+    console.error("trend_posts", e);
+  }
+
   if (isDemo.hf || !config.hf.trendsDataset) return fallback;
 
   const params = new URLSearchParams({
@@ -72,15 +86,15 @@ async function loadPosts(category: string): Promise<{ posts: string[]; source: s
       )
       .filter((t) => t.length > 0);
     if (!posts.length) return fallback;
-    return { posts, source: `Dataset Hugging Face : ${config.hf.trendsDataset}` };
+    return { posts, source: `Dataset Hugging Face : ${config.hf.trendsDataset}`, fromTable: false };
   } catch (e) {
     console.error("Dataset tendances", e);
     return fallback;
   }
 }
 
-export async function computeTrends(category: string): Promise<Trends> {
-  const { posts, source } = await loadPosts(category);
+export async function computeTrends(category: string): Promise<Trends & { fromTable: boolean }> {
+  const { posts, source, fromTable } = await loadPosts(category);
   const lower = posts.map((p) => ` ${p.toLowerCase()} `);
 
   const items: TrendItem[] = VOCAB.map((v) => {
@@ -104,5 +118,5 @@ export async function computeTrends(category: string): Promise<Trends> {
           .join(", ")}.`
       : "Aucun thème récurrent détecté.");
 
-  return { source, postsAnalyzed: posts.length, items, summary };
+  return { source, postsAnalyzed: posts.length, items, summary, fromTable };
 }

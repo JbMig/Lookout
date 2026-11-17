@@ -10,14 +10,16 @@ function LoginForm() {
   const next = useSearchParams().get("next") || "/";
   const { me, refresh } = useSession();
   const [mode, setMode] = useState<"login" | "signup">("login");
-  const [demo, setDemo] = useState(false);
+  const [demo, setDemo] = useState<boolean | null>(null);
   const [form, setForm] = useState({ email: "", password: "", fullName: "", orgName: "" });
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    api<{ demo: { db: boolean } }>("/api/status").then((s) => setDemo(s.demo.db)).catch(() => null);
+    api<{ demo: { db: boolean } }>("/api/status")
+      .then((s) => setDemo(s.demo.db))
+      .catch(() => setDemo(false));
   }, []);
   useEffect(() => {
     if (me) router.replace(next);
@@ -33,7 +35,9 @@ function LoginForm() {
     }
     setBusy(true);
     try {
-      const res = await api<{ needsConfirmation?: boolean }>(`/api/auth/${mode}`, { method: "POST", json: form });
+      // En mode démo, le mot de passe n'est pas envoyé.
+      const payload = demo ? { ...form, password: undefined } : form;
+      const res = await api<{ needsConfirmation?: boolean }>(`/api/auth/${mode}`, { method: "POST", json: payload });
       if (res.needsConfirmation) {
         setInfo("Compte créé. Confirmez votre adresse via l'e-mail reçu, puis connectez-vous.");
         setMode("login");
@@ -55,6 +59,9 @@ function LoginForm() {
         <h1 className="text-2xl font-semibold">{mode === "login" ? "Connexion" : "Créer un compte"}</h1>
         <p className="mt-1 text-sm text-ink-soft">Du fichier Circana au rapport de marché, en un clic.</p>
       </div>
+      {demo === null ? (
+        <p className="text-center text-ink-soft">Chargement…</p>
+      ) : (
       <Card>
         <form onSubmit={submit} className="space-y-4" noValidate>
           {demo && (
@@ -83,6 +90,7 @@ function LoginForm() {
           </button>
         </form>
       </Card>
+      )}
       <p className="text-center text-sm text-ink-soft">
         {mode === "login" ? "Pas encore de compte ? " : "Déjà un compte ? "}
         <button className="font-medium text-ink underline underline-offset-2" onClick={() => setMode(mode === "login" ? "signup" : "login")}>

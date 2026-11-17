@@ -14,6 +14,9 @@ import type { InvitationRow, MembershipRow, OrganizationRow, ProfileRow, Role, S
 
 const DEMO_COOKIE = "lk_demo_uid";
 
+/** Compte utilisé par le bouton de connexion en un clic (mode démo). */
+export const DEMO_ACCOUNT = { email: "demo@lookout.app", fullName: "Compte démo", orgName: "Lookout Démo" };
+
 export async function supabaseAuth() {
   const store = await cookies();
   return createServerClient(config.supabase.url, config.supabase.anonKey, {
@@ -33,6 +36,7 @@ export async function supabaseAuth() {
 async function isStaff(userId: string, email: string) {
   if (config.staffEmails.length) return config.staffEmails.includes(email.toLowerCase());
   if (!isDemo.db) return false;
+  if (email.toLowerCase() === DEMO_ACCOUNT.email) return true;
   const [first] = await repo().select<ProfileRow>("profiles", { order: ["created_at", "asc"], limit: 1 });
   return first?.id === userId;
 }

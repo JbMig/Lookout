@@ -3,12 +3,35 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Logo } from "./Logo";
 import { useSession } from "./Session";
+import { useEffect, useState } from "react";
 import { api } from "@/lib/client";
 
 export function Header() {
   const { me, refresh } = useSession();
   const pathname = usePathname();
   const router = useRouter();
+  const [demo, setDemo] = useState(false);
+  const [connecting, setConnecting] = useState(false);
+
+  useEffect(() => {
+    api<{ demo: { db: boolean } }>("/api/status")
+      .then((s) => setDemo(s.demo.db))
+      .catch(() => null);
+  }, []);
+
+  /** Mode démo : le bouton Connexion connecte directement au compte de démonstration. */
+  async function quickLogin() {
+    setConnecting(true);
+    try {
+      await api("/api/auth/demo", { method: "POST" });
+      await refresh();
+      router.push("/");
+    } catch {
+      router.push("/login");
+    } finally {
+      setConnecting(false);
+    }
+  }
   const links = me
     ? [
         { href: "/", label: "Rapports" },
@@ -51,7 +74,13 @@ export function Header() {
               </button>
             </>
           ) : (
-            <Link href="/login" className="ml-2 rounded-md bg-ink px-4 py-2 font-medium text-white">Connexion</Link>
+            demo ? (
+              <button onClick={quickLogin} disabled={connecting} className="ml-2 rounded-md bg-ink px-4 py-2 font-medium text-white disabled:opacity-60">
+                {connecting ? "Connexion…" : "Connexion"}
+              </button>
+            ) : (
+              <Link href="/login" className="ml-2 rounded-md bg-ink px-4 py-2 font-medium text-white">Connexion</Link>
+            )
           )}
         </nav>
       </div>

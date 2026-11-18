@@ -64,6 +64,26 @@ function Report() {
     setShareUrl(null);
     setCopied(false);
   }
+  const [retrying, setRetrying] = useState(false);
+  /** Rapport en échec : recalcule l'analyse sans refaire la collecte, puis reprend le suivi. */
+  async function retry() {
+    setRetrying(true);
+    setError(null);
+    try {
+      let b = await api<Bundle>(`/api/reports/${id}/step?retry=1`, { method: "POST" });
+      setBundle(b);
+      while (b.report.status === "collecting" || b.report.status === "analyzing") {
+        await new Promise((ok) => setTimeout(ok, 2500));
+        b = await api<Bundle>(`/api/reports/${id}/step`, { method: "POST" });
+        setBundle(b);
+      }
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setRetrying(false);
+    }
+  }
+
   async function rerun() {
     try {
       const { id: newId } = await api<{ id: string }>(`/api/reports/${id}/rerun`, { method: "POST" });
@@ -131,7 +151,14 @@ function Report() {
         </div>
       )}
       {error && <p className="text-sm text-bad" role="alert">{error}</p>}
-      {report.error && <p className="rounded-[12px] border border-bad/25 bg-bad/5 px-4 py-3 text-sm text-bad">{report.error}</p>}
+      {report.status === "failed" && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-[12px] border border-bad/25 bg-bad/5 px-4 py-3 text-sm text-bad">
+          <span>L&apos;analyse n&apos;a pas pu se terminer{report.error ? ` : ${report.error}` : "."}</span>
+          <button className={btnSecondary} onClick={retry} disabled={retrying}>
+            <RotateCw size={15} aria-hidden />{retrying ? "Nouvel essai…" : "Réessayer"}
+          </button>
+        </div>
+      )}
 
       {inProgress && (
         <section className="rounded-[14px] border border-line bg-paper p-5" aria-live="polite">

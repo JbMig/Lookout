@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import type { ItemView, ReportBundle, ShadeFamily, Zone } from "@/lib/types";
-import { Card, CardHead, Delta, Empty, ShadeStrip, Tabs, controlCls } from "../ui";
+import { Card, CardHead, Delta, Empty, ShadeStrip, Tabs, btnSecondary, controlCls } from "../ui";
 import { ProductCard } from "./ProductCard";
 import { FAMILY_COLORS, FormatsChart, PriceByBrandChart, SalesByBrandChart } from "./Charts";
 import { fmtEur } from "@/lib/client";
@@ -50,23 +50,24 @@ function Growth({ item }: { item: ItemView }) {
   return <Delta value={growthOf(item)} />;
 }
 
-function useScrollSpy(ids: string[]) {
+/** Onglet actif, gardé dans l'adresse (#marche…) pour le partage et le bouton retour. */
+function useTab(ids: string[]) {
   const [active, setActive] = useState(ids[0]);
   useEffect(() => {
-    const obs = new IntersectionObserver(
-      (entries) => {
-        const visible = entries.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-        if (visible[0]) setActive(visible[0].target.id);
-      },
-      { rootMargin: "-80px 0px -60% 0px" },
-    );
-    ids.forEach((id) => {
-      const el = document.getElementById(id);
-      if (el) obs.observe(el);
-    });
-    return () => obs.disconnect();
+    const read = () => {
+      const h = window.location.hash.slice(1);
+      setActive(ids.includes(h) ? h : ids[0]);
+    };
+    read();
+    window.addEventListener("hashchange", read);
+    return () => window.removeEventListener("hashchange", read);
   }, [ids]);
-  return [active, setActive] as const;
+  const select = (id: string) => {
+    setActive(id);
+    if (window.location.hash.slice(1) !== id) window.history.pushState(null, "", `#${id}`);
+    window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
+  };
+  return [active, select] as const;
 }
 
 /** Tableau principal : chaque produit avec ses ventes, son prix et sa bande de teintes. */
@@ -77,6 +78,9 @@ function RangeTable({ items, isClient }: { items: ItemView[]; isClient: (b: stri
       sort === "sales" ? i.circana.salesValue ?? -1 : sort === "growth" ? growthOf(i) ?? -999 : sort === "price" ? i.product?.priceEur ?? -1 : i.product?.shades.length ?? -1;
     return [...items].sort((a, b) => key(b) - key(a));
   }, [items, sort]);
+  const [all, setAll] = useState(false);
+  const TOP = 15;
+  const shown = all ? sorted : sorted.slice(0, TOP);
   const th = (id: typeof sort, label: string) => (
     <th className="whitespace-nowrap px-3 py-2.5 text-right font-semibold">
       <button onClick={() => setSort(id)} className={`press rounded px-1 ${sort === id ? "text-ink" : "hover:text-ink"}`} aria-sort={sort === id ? "descending" : undefined}>
@@ -91,7 +95,7 @@ function RangeTable({ items, isClient }: { items: ItemView[]; isClient: (b: stri
         <CardHead title="Les gammes du marché" sub={`Ventes Circana${period ? ` ${period}` : ""} et teintes relevées sur chaque fiche`} />
       </div>
       <ul className="divide-y divide-line-soft border-t border-line-soft md:hidden">
-        {sorted.map((i) => {
+        {shown.map((i) => {
           const mine = isClient(i.circana.brand);
           return (
             <li key={i.id} className={`px-5 py-3.5 ${mine ? "bg-amber-wash/60" : ""}`}>
@@ -125,7 +129,7 @@ function RangeTable({ items, isClient }: { items: ItemView[]; isClient: (b: stri
             </tr>
           </thead>
           <tbody>
-            {sorted.map((i) => {
+            {shown.map((i) => {
               const mine = isClient(i.circana.brand);
               const shades = i.product?.shades ?? [];
               return (
@@ -157,15 +161,22 @@ function RangeTable({ items, isClient }: { items: ItemView[]; isClient: (b: stri
           </tbody>
         </table>
       </div>
+      {sorted.length > TOP && (
+        <div className="no-print border-t border-line-soft px-5 py-3 text-center">
+          <button type="button" onClick={() => setAll(!all)} className="press text-sm font-semibold text-ink-soft hover:text-ink">
+            {all ? `Afficher les ${TOP} premiers` : `Voir les ${sorted.length} produits`}
+          </button>
+        </div>
+      )}
     </Card>
   );
 }
 
-/** Audit du catalogue du client (bloc de la synthèse). */
+/** Audit du catalogue du client (onglet « Votre catalogue »). */
 function CatalogAudit({ catalog }: { catalog: NonNullable<ReportBundle["report"]["catalog"]> }) {
   const n = (v: number) => v.toLocaleString("fr-FR", { maximumFractionDigits: 1 });
   return (
-    <section id="catalogue" className="scroll-mt-24">
+    <section id="catalogue">
       <Card flush>
         <div className="px-5 pt-5"><CardHead title="Audit de votre catalogue" sub="Vos produits comparés aux prix et aux gammes du marché" /></div>
         <ul className="divide-y divide-line-soft border-t border-line-soft md:hidden">
@@ -220,6 +231,8 @@ export function ReportView({ bundle }: { bundle: Bundle }) {
   const [brand, setBrand] = useState("all");
   const [maxPrice, setMaxPrice] = useState<number | null>(null);
   const [q, setQ] = useState("");
+  const PAGE = 24;
+  const [limit, setLimit] = useState(PAGE);
 
   const clientBrands = useMemo(() => new Set((report.catalog?.clientBrands ?? []).map((b) => b.toLowerCase())), [report.catalog]);
   const isClient = (b: string) => clientBrands.has(b.toLowerCase());
@@ -257,7 +270,9 @@ export function ReportView({ bundle }: { bundle: Bundle }) {
     [report.catalog, report.trends, items.length],
   );
   const ids = useMemo(() => sections.map((x) => x.id), [sections]);
-  const [active, setActive] = useScrollSpy(ids);
+  const [active, setActive] = useTab(ids);
+  /** Un seul onglet visible à l'écran ; tous sont imprimés dans l'export PDF. */
+  const panel = (id: string) => (active === id ? "" : "hidden print:block");
 
   return (
     <div className="space-y-8">
@@ -265,11 +280,8 @@ export function ReportView({ bundle }: { bundle: Bundle }) {
         <Tabs items={sections} active={active} onSelect={setActive} />
       </div>
 
-      <section id="synthese" className="print-full grid scroll-mt-24 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
-        <div className="flex min-w-0 flex-col gap-6">
+      <section id="synthese" role="tabpanel" aria-label="Synthèse" className={`print-full grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_340px] ${panel("synthese")}`}>
         <RangeTable items={items} isClient={isClient} />
-        {report.catalog && <CatalogAudit catalog={report.catalog} />}
-        </div>
 
         <div className="flex flex-col gap-6">
           <Card>
@@ -310,7 +322,13 @@ export function ReportView({ bundle }: { bundle: Bundle }) {
         </div>
       </section>
 
-      <section id="marche" className="grid scroll-mt-24 gap-6 lg:grid-cols-2">
+      {report.catalog && (
+        <div role="tabpanel" aria-label="Votre catalogue" className={panel("catalogue")}>
+          <CatalogAudit catalog={report.catalog} />
+        </div>
+      )}
+
+      <section id="marche" role="tabpanel" aria-label="Marché" className={`grid gap-6 lg:grid-cols-2 ${panel("marche")}`}>
         <Card><CardHead title="Prix constaté par marque" sub="En euros, après conversion" /><PriceByBrandChart items={items} /></Card>
         <Card><CardHead
             title="Ventes Circana par marque"
@@ -320,7 +338,7 @@ export function ReportView({ bundle }: { bundle: Bundle }) {
       </section>
 
       {report.trends && (
-        <section id="tendances" className="scroll-mt-24">
+        <section id="tendances" role="tabpanel" aria-label="Tendances" className={panel("tendances")}>
           <Card>
             <CardHead title="Tendances sociales" sub={`${report.trends.postsAnalyzed} publications · ${report.trends.source}`} />
             <p className="max-w-3xl leading-relaxed text-ink-soft">{report.trends.summary}</p>
@@ -347,7 +365,7 @@ export function ReportView({ bundle }: { bundle: Bundle }) {
         </section>
       )}
 
-      <section id="fiches" className="scroll-mt-24">
+      <section id="fiches" role="tabpanel" aria-label="Fiches produits" className={panel("fiches")}>
         <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
           <h2 className="text-lg font-semibold tracking-[-0.01em]">Fiches produits <span className="font-medium text-ink-faint">{filtered.length}</span></h2>
           <div className="no-print flex flex-wrap items-end gap-3 text-sm">
@@ -379,7 +397,13 @@ export function ReportView({ bundle }: { bundle: Bundle }) {
           <Empty title="Aucune fiche ne correspond aux filtres">Élargissez la zone, la marque ou le prix maximum.</Empty>
         ) : (
           <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-            {filtered.map((item) => <ProductCard key={item.id} item={item} isClient={isClient(item.circana.brand)} />)}
+            {filtered.slice(0, limit).map((item) => <ProductCard key={item.id} item={item} isClient={isClient(item.circana.brand)} />)}
+          </div>
+        )}
+        {filtered.length > limit && (
+          <div className="no-print mt-6 flex flex-col items-center gap-2">
+            <p className="text-[13px] text-ink-faint">{limit} fiches affichées sur {filtered.length}</p>
+            <button type="button" onClick={() => setLimit(limit + PAGE)} className={btnSecondary}>Afficher {Math.min(PAGE, filtered.length - limit)} fiches de plus</button>
           </div>
         )}
       </section>

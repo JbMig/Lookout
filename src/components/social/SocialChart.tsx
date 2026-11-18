@@ -6,6 +6,8 @@ import type { Graphique } from "@/lib/social";
 const PALETTE = ["#13233F", "#F2A33A", "#E58FA0", "#8E3557", "#A884B5", "#EE9474", "#B98667", "#24406B", "#C8243B", "#17784F"];
 const SANS_AMBRE = PALETTE.filter((c) => c !== "#F2A33A");
 const LOREAL = "#F2A33A"; // ambre = marques du groupe L'Oréal
+/** Nuances d'ambre : chaque marque L'Oréal garde l'ambre mais reste distincte des autres. */
+const LOREAL_RAMP = ["#F2A33A", "#C97D14", "#F7C27A", "#8A560B", "#FAD9A8", "#E08A1E"];
 const AUTRE = "#13233F";
 const GRID = "#eef0f3";
 const TICK = { fontSize: 12, fill: "#6f7b8e" };
@@ -24,16 +26,23 @@ export function SocialChart({ g }: { g: Graphique }) {
 
   if (g.type === "donut") {
     const key = g.series[0]?.cle ?? "valeur";
+    // Les parts nulles n'apparaissent pas ; chaque marque a sa propre couleur.
+    const rows = data.filter((row) => Number(row[key]) > 0);
+    let l = 0, o = 0;
+    const colors = rows.map((row) => (loreal(row) ? LOREAL_RAMP[l++ % LOREAL_RAMP.length] : SANS_AMBRE[o++ % SANS_AMBRE.length]));
     return (
-      <ResponsiveContainer width="100%" height={300}>
-        <PieChart>
-          <Pie data={data} dataKey={key} nameKey={g.axe_x} innerRadius={62} outerRadius={110} paddingAngle={1.5} stroke="#fff">
-            {data.map((row, i) => <Cell key={i} fill={loreal(row) ? LOREAL : SANS_AMBRE[i % SANS_AMBRE.length]} />)}
-          </Pie>
-          <Tooltip {...TOOLTIP} formatter={(v) => `${fmt(v)} %`} />
-          <Legend wrapperStyle={{ fontSize: 12 }} />
-        </PieChart>
-      </ResponsiveContainer>
+      <>
+        <ResponsiveContainer width="100%" height={300}>
+          <PieChart>
+            <Pie data={rows} dataKey={key} nameKey={g.axe_x} innerRadius={62} outerRadius={110} paddingAngle={1.5} stroke="#fff">
+              {rows.map((_, i) => <Cell key={i} fill={colors[i]} />)}
+            </Pie>
+            <Tooltip {...TOOLTIP} formatter={(v) => `${fmt(v)} %`} />
+            <Legend wrapperStyle={{ fontSize: 12 }} />
+          </PieChart>
+        </ResponsiveContainer>
+        {rows.some(loreal) && <p className="mt-1 text-center text-xs text-ink-faint">Nuances d&apos;ambre : marques du groupe L&apos;Oréal</p>}
+      </>
     );
   }
 

@@ -1,25 +1,22 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
+import "@fontsource-variable/hanken-grotesk";
 import "./globals.css";
 import { SessionProvider } from "@/components/Session";
-import { Header } from "@/components/Header";
-import { DemoBanner } from "@/components/DemoBanner";
+import { AppShell } from "@/components/AppShell";
 
 export const metadata: Metadata = {
-  title: "Lookout — veille produits beauté",
-  description: "Du fichier Circana au rapport de marché, en un clic.",
+  title: "Lookout · la veille qui ne dort jamais",
+  description: "Ventes Circana, fiches produits du web, tendances sociales et votre catalogue, croisés dans un rapport sourcé.",
 };
+
+export const viewport: Viewport = { themeColor: "#13233f" };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="fr" className="h-full antialiased">
-      <body className="flex min-h-full flex-col">
+    <html lang="fr" className="h-full">
+      <body className="min-h-full">
         <SessionProvider>
-          <Header />
-          <DemoBanner />
-          <main className="mx-auto w-full max-w-7xl flex-1 px-6 py-8">{children}</main>
-          <footer className="border-t border-line py-6 text-center text-xs text-ink-soft">
-            Lookout · Circana + web (Linkup, scraping, H Company) + Hugging Face
-          </footer>
+          <AppShell>{children}</AppShell>
         </SessionProvider>
       </body>
     </html>

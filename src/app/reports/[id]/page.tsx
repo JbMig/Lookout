@@ -5,7 +5,8 @@ import { api, fmtDate } from "@/lib/client";
 import { Private, useSession } from "@/components/Session";
 import { StatusBadge } from "@/components/StatusBadge";
 import { ReportView, type Bundle } from "@/components/report/ReportView";
-import { btnSecondary } from "@/components/ui";
+import { FileDown, Link2, RotateCw, Share2, Trash2 } from "lucide-react";
+import { PageHeader, PageSkeleton, Pill, btnDanger, btnPrimary, btnSecondary } from "@/components/ui";
 
 function Report() {
   const { id } = useParams<{ id: string }>();
@@ -78,62 +79,78 @@ function Report() {
   }
 
   if (error && !bundle) return <p className="text-bad" role="alert">{error}</p>;
-  if (!bundle) return <p className="text-ink-soft">Chargement du rapport…</p>;
+  if (!bundle) return <PageSkeleton />;
   const { report, items } = bundle;
   const finished = items.filter((i) => !["pending", "collecting"].includes(i.status)).length;
   const progress = items.length ? Math.round((finished / items.length) * 100) : 0;
-  const canEdit = true;
+  const complete = items.filter((i) => i.status === "done").length;
+  const team = items.filter((i) => ["awaiting_team", "navigating"].includes(i.status)).length;
   const canDelete = me!.user.isStaff || report.created_by === me!.user.userId;
+  const inProgress = report.status !== "done" && report.status !== "failed";
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-semibold">{report.name}</h1>
-            <StatusBadge status={report.status} />
-          </div>
-          <p className="mt-1 text-sm text-ink-soft">
-            {report.category || "Sans catégorie"} · {report.params.zones.join(" + ")}
-            {report.params.excludedBrands.length ? ` · ${report.params.excludedBrands.length} marque(s) exclue(s)` : ""}
-            {report.params.focus ? ` · focus « ${report.params.focus} »` : ""} · {fmtDate(report.created_at)}
-          </p>
-        </div>
-        {report.status === "done" && (
-          <div className="flex flex-wrap gap-2">
-            {canEdit && (shareUrl ? (
-              <button className={btnSecondary} onClick={unshare}>Désactiver le lien de partage</button>
+      <PageHeader
+        title={report.name}
+        meta={
+          <>
+            <span>{[report.category || null, report.params.zones.map((z) => (z === "US" ? "États-Unis" : "Europe")).join(" et "), `lancée le ${fmtDate(report.created_at)}`].filter(Boolean).join(" · ")}</span>
+            {inProgress ? (
+              <StatusBadge status={report.status} />
             ) : (
-              <button className={btnSecondary} onClick={share}>Partager</button>
-            ))}
-            <button className={btnSecondary} onClick={() => window.print()}>Exporter en PDF</button>
-            {canEdit && <button className={btnSecondary} onClick={rerun}>Relancer</button>}
-            {canDelete && <button className={`${btnSecondary} text-bad`} onClick={remove}>Supprimer</button>}
-          </div>
-        )}
-      </header>
+              <Pill tone={team ? "wait" : "ok"}>
+                {complete} fiche{complete > 1 ? "s" : ""} complète{complete > 1 ? "s" : ""} sur {items.length}
+                {team ? ` · ${team} chez l'équipe` : ""}
+              </Pill>
+            )}
+            {report.params.excludedBrands.length > 0 && <span>{report.params.excludedBrands.length} marque{report.params.excludedBrands.length > 1 ? "s" : ""} exclue{report.params.excludedBrands.length > 1 ? "s" : ""}</span>}
+            {report.params.focus && <span>Focus « {report.params.focus} »</span>}
+          </>
+        }
+        actions={
+          report.status === "done" ? (
+            <>
+              <button className={btnSecondary} onClick={rerun}><RotateCw size={15} aria-hidden />Relancer</button>
+              <button className={btnSecondary} onClick={() => window.print()}><FileDown size={15} aria-hidden />PDF</button>
+              {canDelete && <button className={btnDanger} onClick={remove} aria-label="Supprimer le rapport"><Trash2 size={15} aria-hidden /></button>}
+              {shareUrl ? (
+                <button className={btnSecondary} onClick={unshare}>Désactiver le lien</button>
+              ) : (
+                <button className={btnPrimary} onClick={share}><Share2 size={15} aria-hidden />Partager</button>
+              )}
+            </>
+          ) : undefined
+        }
+      />
 
       {shareUrl && (
-        <p className="rounded-md bg-paper p-3 text-sm">
-          Lien de partage en lecture seule {copied && "(copié)"} :{" "}
-          <a className="break-all underline underline-offset-2" href={shareUrl} target="_blank" rel="noreferrer">{shareUrl}</a>
-        </p>
+        <div className="flex flex-wrap items-center gap-3 rounded-[12px] border border-line bg-paper px-4 py-3 text-sm">
+          <Link2 size={16} className="text-ink-faint" aria-hidden />
+          <span className="text-ink-soft">Lien en lecture seule{copied ? ", copié dans le presse-papiers" : ""} :</span>
+          <a className="break-all font-semibold hover:underline" href={shareUrl} target="_blank" rel="noreferrer">{shareUrl}</a>
+        </div>
       )}
       {error && <p className="text-sm text-bad" role="alert">{error}</p>}
-      {report.error && <p className="text-sm text-bad">{report.error}</p>}
+      {report.error && <p className="rounded-[12px] border border-bad/25 bg-bad/5 px-4 py-3 text-sm text-bad">{report.error}</p>}
 
-      {report.status !== "done" && report.status !== "failed" && (
-        <section className="rounded-xl border border-line bg-paper p-5" aria-live="polite">
-          <div className="flex justify-between text-sm">
-            <span>{report.status === "analyzing" ? "Analyse du marché, du catalogue et des tendances…" : `Collecte des fiches produits : ${finished} / ${items.length}`}</span>
-            <span>{progress} %</span>
+      {inProgress && (
+        <section className="rounded-[14px] border border-line bg-paper p-5" aria-live="polite">
+          <div className="flex flex-wrap justify-between gap-2 text-sm">
+            <span className="font-semibold">{report.status === "analyzing" ? "Analyse du marché, du catalogue et des tendances…" : `Collecte des fiches produits : ${finished} sur ${items.length}`}</span>
+            <span className="text-ink-soft">{progress} %</span>
           </div>
-          <div className="mt-2 h-2 overflow-hidden rounded-full bg-cream">
-            <div className="h-full bg-amber transition-all" style={{ width: `${progress}%` }} />
+          <div className="mt-3 flex h-3 gap-[3px]" aria-hidden>
+            {items.map((i) => (
+              <i
+                key={i.id}
+                className={`flex-1 rounded-[3px] transition-colors duration-300 ${
+                  i.status === "done" ? "bg-night" : ["awaiting_team", "navigating", "partial"].includes(i.status) ? "bg-amber" : i.status === "failed" ? "bg-bad" : i.status === "collecting" ? "skeleton" : "bg-line-soft"
+                }`}
+              />
+            ))}
           </div>
-          <p className="mt-2 text-xs text-ink-soft">
-            Linkup trouve chaque page produit, puis Lookout tente un scraping direct. Les sites qui résistent sont confiés à l&apos;équipe,
-            qui les traite en computer use : ces fiches se compléteront ensuite automatiquement.
+          <p className="mt-3 text-[13px] text-ink-soft">
+            Linkup trouve chaque page produit, puis Lookout la lit directement. Les sites qui résistent passent à l&apos;équipe, qui les traite en computer use : ces fiches se compléteront ensuite d&apos;elles-mêmes.
           </p>
         </section>
       )}

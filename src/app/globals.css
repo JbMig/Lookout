@@ -1,27 +1,144 @@
 @import "tailwindcss";
 
+/*
+ * Lookout · monde « nuancier ».
+ * Rail bleu nuit, fond de travail gris froid, cartes blanches ; l'ambre du logo
+ * marque « votre marque » et l'attente. Les seules couleurs vives sont les teintes des produits.
+ */
 @theme {
+  --color-night: #13233f;
+  --color-night-2: #1c3256;
+  --color-night-3: #24406b;
+  --color-night-line: #2a3f63;
+  --color-night-text: #c6d1e1;
+  --color-night-muted: #8597b2;
+
   --color-ink: #13233f;
-  --color-ink-soft: #3b4a63;
-  --color-cream: #f7f5f0;
+  --color-ink-soft: #4f5d73;
+  --color-ink-faint: #6f7b8e;
+  --color-cream: #f4f5f7; /* fond de travail (nom conservé pour les classes existantes) */
+  --color-ground: #f4f5f7;
   --color-paper: #ffffff;
-  --color-line: #e3e0d8;
+  --color-line: #e4e6eb;
+  --color-line-soft: #eef0f3;
+
   --color-amber: #f2a33a;
-  --color-amber-dark: #8a5308;
-  --color-ok: #1f7a4d;
-  --color-warn: #8a5308;
-  --color-bad: #a3302d;
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --color-amber-dark: #8a560b;
+  --color-amber-wash: #fdf3e3;
+  --color-ok: #17784f;
+  --color-warn: #8a560b;
+  --color-bad: #b33939;
+
+  --font-sans: "Hanken Grotesk Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --radius-card: 14px;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+html {
+  background: var(--color-ground);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 body {
-  background: var(--color-cream);
-  color: var(--color-ink);
-  font-family: var(--font-sans);
+  background: var(--color-ground);
+}
+
+::selection {
+  background: #f7cfd5;
+  color: var(--color-night);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-amber);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+input,
+select,
+textarea {
+  caret-color: var(--color-amber-dark);
+  accent-color: var(--color-night);
+}
+
+a {
+  text-underline-offset: 3px;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #c9ced8 transparent;
+}
+
+/* Pression des éléments cliquables : retour immédiat. */
+.press {
+  transition: transform 140ms var(--ease-out), background-color 160ms ease, box-shadow 180ms ease, border-color 160ms ease, color 160ms ease;
+}
+.press:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+/* Carte liée : monte légèrement au survol. */
+@media (hover: hover) and (pointer: fine) {
+  .lift {
+    transition: transform 200ms var(--ease-out), box-shadow 200ms var(--ease-out), border-color 160ms ease;
+  }
+  .lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 24px -14px rgb(19 35 63 / 0.35);
+  }
+}
+
+/* Signature : bande de teintes, une teinte s'élargit au survol. */
+.shade-strip > i {
+  flex: 1 1 0;
+  transition: flex-grow 220ms var(--ease-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .shade-strip > i:hover {
+    flex-grow: 2.6;
+  }
+}
+
+/* Squelettes de chargement. */
+.skeleton {
+  background: linear-gradient(90deg, var(--color-line-soft) 0%, #f8f9fa 50%, var(--color-line-soft) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+  border-radius: 8px;
+}
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* Entrée du panneau de menu mobile. */
+.drawer {
+  transition: transform 260ms var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .press:active:not(:disabled),
+  .lift:hover {
+    transform: none;
+  }
+  .skeleton {
+    animation: none;
+  }
+  .shade-strip > i {
+    transition: none;
+  }
 }
 
 @media print {
-  header, footer, nav, button, select, input, .no-print { display: none !important; }
-  body { background: #fff; }
+  aside, header, nav, button, select, input, .no-print { display: none !important; }
+  html, body { background: #fff; }
   section { break-inside: avoid; }
+  .print-full { grid-template-columns: 1fr !important; }
 }

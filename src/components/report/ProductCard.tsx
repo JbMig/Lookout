@@ -3,7 +3,7 @@ import type { ItemView } from "@/lib/types";
 import { StatusBadge } from "../StatusBadge";
 import { Delta, ShadeStrip } from "../ui";
 import { fmtMoney } from "@/lib/client";
-import { growthOf } from "./ReportView";
+import { growthOf, isNew, salesSymbol } from "./ReportView";
 
 const METHOD = { scraping: "scraping direct", linkup: "Linkup", hcompany: "computer use H Company", manual: "saisie de l'équipe", demo: "démo" } as const;
 
@@ -41,8 +41,8 @@ export function ProductCard({ item, isClient }: { item: ItemView; isClient?: boo
 
         {c.salesValue !== undefined && (
           <p className="text-[13px] text-ink-soft">
-            Circana {c.period ?? ""} : {new Intl.NumberFormat("fr-FR").format(c.salesValue)} $
-            {growthOf(item) !== null && <> · <Delta value={growthOf(item)} /></>}
+            Circana {c.period ?? ""} : {new Intl.NumberFormat("fr-FR").format(c.salesValue)} {salesSymbol(c.currency)}
+            {isNew(item) ? <> · <span className="font-semibold text-ok">Nouveauté</span></> : growthOf(item) !== null && <> · <Delta value={growthOf(item)} /></>}
           </p>
         )}
 

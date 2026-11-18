@@ -27,6 +27,9 @@ export function periodToDate(label: string | undefined, fallback = new Date()): 
   if (m) return `${m[1]}-${m[2]}-${m[3]}`;
   m = s.match(/^(\d{4})$/);
   if (m) return `${m[1]}-01-01`;
+  // Années fiscales ou cumuls : « FY 2025 », « CY2024 », « YTD 2025 », « MAT 2025 »
+  m = s.match(/^(?:FY|CY|YTD|MAT)\s*(\d{4})$/i);
+  if (m) return `${m[1]}-01-01`;
   const d = new Date(s);
   return Number.isNaN(d.getTime()) ? iso(fallback) : iso(d);
 }
@@ -61,9 +64,10 @@ export async function saveCircanaImport(fileName: string, rows: CircanaRow[], us
       units: r.units ?? null,
       revenue: r.salesValue ?? null,
       avg_price: r.avgPrice ?? null,
-      currency: "USD",
+      currency: r.currency ?? "USD",
       product_key: normalize(`${r.brand} ${r.product} ${r.zone}`),
-      raw: { period_label: r.period ?? null },
+      segment: r.segment ?? null,
+      raw: { period_label: r.period ?? null, shades: r.shades ?? undefined },
     }));
     for (let i = 0; i < sales.length; i += 500) await db.insert<CircanaSaleRow>("circana_sales", sales.slice(i, i + 500));
     await db.update("circana_imports", imp.id, { status: "completed" });

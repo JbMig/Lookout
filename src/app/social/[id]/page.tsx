@@ -41,7 +41,7 @@ function VeilleView() {
           {v.stats && <span>{nf(v.stats.videos)} vidéos · {nf(v.stats.commentaires)} commentaires classés</span>}
           {v.stats?.duree_s != null && <span>{Math.round(v.stats.duree_s / 60)} min</span>}
           {v.cout_usd != null && <span>Apify : {nf(v.cout_usd, 2)} $</span>}
-          <Pill tone={v.statut === "termine" ? "ok" : v.statut === "en_cours" ? "wait" : v.statut === "echec" ? "bad" : "neutral"}>{v.statut === "en_cours" ? `En cours · ${v.etape ?? ""}` : v.statut}</Pill>
+          <Pill tone={v.statut === "termine" ? "ok" : v.statut === "en_cours" ? "wait" : v.statut === "echec" ? "bad" : "neutral"}>{v.statut === "en_cours" ? `En cours${v.etape ? ` · ${v.etape}` : ""}` : { termine: "Terminée", partiel: "Partielle", echec: "Échec" }[v.statut] ?? v.statut}</Pill>
         </>}
       />
 

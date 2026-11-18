@@ -1,7 +1,7 @@
 # Schéma Supabase utilisé par Lookout
 
-L'application s'adapte au schéma **déjà en place** dans le projet Supabase : aucune migration n'est
-fournie ni nécessaire. Le code n'écrit que des lignes de données, via la clé `service_role` côté serveur.
+L'application s'adapte au schéma déjà en place dans le projet Supabase. Seul ajout : la table `sites`
+(`migrations/20261118_sites.sql`, déjà appliquée sur le projet). Le code n'écrit que des lignes de données, via la clé `service_role` côté serveur.
 
 | Table | Usage dans l'application |
 |---|---|
@@ -14,12 +14,13 @@ fournie ni nécessaire. Le code n'écrit que des lignes de données, via la clé
 | `enrichment_jobs` | File de l'équipe. `source` : `team`, `hcompany:<session>`, `manual`, `dismissed` |
 | `analyses` | `market_comparison` (statistiques, tendances, analyse) et `catalog_audit` (audit du catalogue) |
 | `growth_opportunities` | Écarts de prix et de gammes de teintes issus de l'audit du catalogue |
+| `sites` | Sites surveillés (migration `migrations/20261118_sites.sql`). Méthode de collecte, parcours de computer use, dernier succès. Un site rencontré pendant une analyse est ajouté automatiquement (`source = 'discovered'`) |
 | `trend_posts` | Source prioritaire des tendances TikTok / Instagram si elle contient des publications |
 
 Non utilisées pour l'instant : `catalog_variants`, `trend_signals`, buckets `packshots`, `catalog-images`, `reports`,
 fonctions `match_market_products` / `match_catalog_products` (prêtes pour une recherche par similarité).
 
-Absent du schéma, donc géré autrement : les **sites** surveillés (`src/lib/sites.ts`), les journaux d'appels
+Absent du schéma, donc géré autrement : les journaux d'appels
 (logs Vercel), les organisations, invitations et quotas (espace unique, équipe définie par `STAFF_EMAILS`).
 
 En mode démo (sans variables Supabase), `.data/db.json` reproduit ces mêmes tables.

@@ -25,7 +25,8 @@ export type Table =
   | "analyses"
   | "growth_opportunities"
   | "trend_posts"
-  | "trend_signals";
+  | "trend_signals"
+  | "sites";
 
 type Row = Record<string, unknown> & { id: string };
 
@@ -148,6 +149,7 @@ const DEFAULTS: Partial<Record<Table, Record<string, unknown>>> = {
   catalog_products: { sku: null, brand: null, category: null, subcategory: null, range_name: null, format: null, status: "active", launch_date: null, price: null, currency: "EUR", description: null, image_url: null, attributes: {} },
   analyses: { status: "queued", params: {}, result: {}, error_message: null, started_at: null, completed_at: null },
   growth_opportunities: { description: null, score: null, estimated_impact: {}, refs: {} },
+  sites: { country: null, type: "revendeur", categories: [], method: "untested", cu_instructions: null, source: "catalog", last_success_at: null },
 };
 
 class LocalRepo implements Repo {
@@ -177,7 +179,7 @@ class LocalRepo implements Repo {
           ({
             ...DEFAULTS[table],
             created_at: now,
-            ...(["reports", "market_products", "catalog_products", "circana_imports", "profiles"].includes(table) ? { updated_at: now } : {}),
+            ...(["reports", "market_products", "catalog_products", "circana_imports", "profiles", "sites"].includes(table) ? { updated_at: now } : {}),
             ...(r as Record<string, unknown>),
             id: ((r as Record<string, unknown>).id as string) ?? randomUUID(),
           }) as Row,

@@ -16,7 +16,7 @@ import type { ProfileRow, SessionUser } from "./types";
  * L'équipe Lookout (administration) est définie par STAFF_EMAILS.
  */
 
-const DEMO_COOKIE = "lk_demo_uid";
+const DEMO_COOKIE = "lk_demo";
 
 export const DEMO_ACCOUNT = { email: demoCfg.email, fullName: "Compte démo" };
 
@@ -65,11 +65,13 @@ function isStaff(email: string) {
 
 export async function getSession(): Promise<SessionUser | null> {
   if (isDemo.db) {
-    const userId = (await cookies()).get(DEMO_COOKIE)?.value;
-    if (!userId) return null;
-    const p = await repo().get<ProfileRow>("profiles", userId);
-    if (!p?.email) return null;
-    return { userId, email: p.email, fullName: p.full_name, isStaff: isStaff(p.email) };
+    // Le cookie porte l'identité complète : la session tient même si le stockage
+    // local du serveur est vide (Vercel : une copie par fonction).
+    const demo = readDemoCookie((await cookies()).get(DEMO_COOKIE)?.value);
+    if (!demo) return null;
+    const p = await repo().get<ProfileRow>("profiles", demo.id);
+    if (!p) await ensureProfile(demo.id, demo.email, demo.name ?? undefined);
+    return { userId: demo.id, email: demo.email, fullName: p?.full_name ?? demo.name, isStaff: isStaff(demo.email) };
   }
   const { data } = await (await supabaseAuth()).auth.getUser();
   const u = data.user;
@@ -83,7 +85,19 @@ export async function demoLogin(email: string, fullName?: string) {
   const existing = await repo().select<ProfileRow>("profiles", { eq: { email: email.toLowerCase() } });
   const userId = existing[0]?.id ?? randomUUID();
   await ensureProfile(userId, email, fullName);
-  (await cookies()).set(DEMO_COOKIE, userId, { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 30 });
+  const value = Buffer.from(JSON.stringify({ id: userId, email: email.toLowerCase(), name: fullName ?? existing[0]?.full_name ?? null })).toString("base64url");
+  (await cookies()).set(DEMO_COOKIE, value, { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 30 });
+}
+
+/** Lit le cookie de démo ({ id, email, name } en base64url). */
+export function readDemoCookie(raw: string | undefined): { id: string; email: string; name: string | null } | null {
+  if (!raw) return null;
+  try {
+    const v = JSON.parse(Buffer.from(raw, "base64url").toString("utf8"));
+    return typeof v?.id === "string" && typeof v?.email === "string" ? { id: v.id, email: v.email, name: v.name ?? null } : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Avec Supabase : crée le compte démo s'il n'existe pas (e-mail confirmé d'office) et ouvre la session. */

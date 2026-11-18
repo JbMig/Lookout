@@ -29,7 +29,7 @@ function LogoChip({ className = "" }: { className?: string }) {
 }
 
 function Rail({ onNavigate }: { onNavigate?: () => void }) {
-  const { me, refresh } = useSession();
+  const { me, signOut } = useSession();
   const pathname = usePathname();
   const router = useRouter();
   const [recent, setRecent] = useState<Recent[]>([]);
@@ -41,8 +41,7 @@ function Rail({ onNavigate }: { onNavigate?: () => void }) {
   }, [pathname]);
 
   async function logout() {
-    await api("/api/auth/logout", { method: "POST" });
-    await refresh();
+    await signOut();
     router.push("/login");
   }
 

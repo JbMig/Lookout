@@ -1,4 +1,6 @@
 "use client";
+import { inputCls, btnSecondary } from "./ui";
+import { UploadCloud } from "lucide-react";
 import { useState } from "react";
 import type { FieldDef, Mapping, RawRow } from "@/lib/tabular";
 
@@ -29,6 +31,7 @@ export function FileImport({
 }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [over, setOver] = useState(false);
 
   async function upload(file: File) {
     setError(null);
@@ -57,22 +60,37 @@ export function FileImport({
   }
 
   return (
-    <div className="rounded-xl border border-line bg-paper p-5">
+    <div className="rounded-[14px] border border-line bg-paper p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="font-semibold">{title}</h3>
           <p className="mt-1 text-sm text-ink-soft">{description}</p>
         </div>
         {value && (
-          <button type="button" className="text-sm text-ink-soft underline underline-offset-2" onClick={() => onChange(null)}>
+          <button type="button" className="press text-sm font-semibold text-ink-soft hover:text-bad" onClick={() => onChange(null)}>
             Retirer
           </button>
         )}
       </div>
 
       {!value && (
-        <div className="mt-4 rounded-lg border border-dashed border-line p-5 text-center">
-          <label className="cursor-pointer text-sm font-medium underline underline-offset-2">
+        <div
+          onDragOver={(e) => {
+            e.preventDefault();
+            setOver(true);
+          }}
+          onDragLeave={() => setOver(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setOver(false);
+            const f = e.dataTransfer.files?.[0];
+            if (f) upload(f);
+          }}
+          className={`mt-4 flex flex-col items-center rounded-[12px] border border-dashed px-5 py-7 text-center transition-colors duration-150 ${over ? "border-night bg-ground" : "border-[#d5d9e0]"}`}
+        >
+          <UploadCloud size={22} className="text-ink-faint" aria-hidden />
+          <p className="mt-2 text-sm text-ink-soft">Déposez le fichier ici ou</p>
+          <label className={`${btnSecondary} mt-3 cursor-pointer has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-amber`}>
             {busy ? "Lecture du fichier…" : "Choisir un fichier"}
             <input
               type="file"
@@ -82,9 +100,9 @@ export function FileImport({
               onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])}
             />
           </label>
-          <p className="mt-1 text-xs text-ink-soft">CSV, Excel (.xlsx) ou JSON · 8 Mo max</p>
+          <p className="mt-2 text-xs text-ink-faint">CSV, Excel (.xlsx) ou JSON · 8 Mo max</p>
           {sampleUrl && (
-            <button type="button" onClick={useSample} className="mt-3 text-sm text-ink underline underline-offset-2">
+            <button type="button" onClick={useSample} className="press mt-3 text-sm font-semibold text-ink-soft hover:text-ink hover:underline">
               Utiliser le fichier d&apos;exemple
             </button>
           )}
@@ -105,7 +123,7 @@ export function FileImport({
                   {f.required && <span className="text-bad"> *</span>}
                 </span>
                 <select
-                  className={`mt-1 w-full rounded-md border bg-paper px-2 py-1.5 ${f.required && !value.mapping[f.key] ? "border-bad" : "border-line"}`}
+                  className={`${inputCls} ${f.required && !value.mapping[f.key] ? "border-bad" : ""}`}
                   value={value.mapping[f.key] ?? ""}
                   onChange={(e) => onChange({ ...value, mapping: { ...value.mapping, [f.key]: e.target.value || null } })}
                 >
@@ -117,7 +135,7 @@ export function FileImport({
           </div>
           <div className="overflow-x-auto rounded-lg border border-line">
             <table className="w-full text-left text-xs">
-              <thead className="bg-cream">
+              <thead className="bg-ground text-ink-faint">
                 <tr>{value.headers.map((h) => <th key={h} className="whitespace-nowrap px-3 py-2 font-medium">{h}</th>)}</tr>
               </thead>
               <tbody>

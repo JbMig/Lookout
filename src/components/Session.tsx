@@ -3,6 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useState } from "rea
 import { usePathname, useRouter } from "next/navigation";
 import { api } from "@/lib/client";
 import type { SessionUser } from "@/lib/types";
+import { PageSkeleton } from "./ui";
 
 export interface Me {
   user: SessionUser;
@@ -56,7 +57,7 @@ export const useSession = () => useContext(Ctx);
 /** Affiche le contenu seulement une fois la session chargée (pages privées). */
 export function Private({ children, staff = false }: { children: React.ReactNode; staff?: boolean }) {
   const { me, loading } = useSession();
-  if (loading || !me) return <p className="text-ink-soft">Chargement…</p>;
+  if (loading || !me) return <PageSkeleton />;
   if (staff && !me.user.isStaff) return <p className="text-bad">Cette page est réservée à l&apos;équipe Lookout.</p>;
   return <>{children}</>;
 }

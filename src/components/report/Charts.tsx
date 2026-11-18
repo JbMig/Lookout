@@ -4,17 +4,25 @@ import type { ItemView, ReportStats, ShadeFamily } from "@/lib/types";
 
 const US = "#13233F";
 const EU = "#F2A33A";
-const FAMILY_COLORS: Record<ShadeFamily, string> = {
-  Rose: "#E8869B",
-  "Pêche / corail": "#F2A07A",
-  Rouge: "#C23B3B",
-  "Baie / prune": "#7E2F55",
-  Mauve: "#A884B5",
-  "Nude / brun": "#B98667",
-  Autre: "#C9C4BA",
+const GRID = "#eef0f3";
+const TICK = { fontSize: 12, fill: "#6f7b8e" };
+const TOOLTIP = {
+  contentStyle: { borderRadius: 10, border: "1px solid #e4e6eb", boxShadow: "0 8px 20px -12px rgb(19 35 63 / .35)", fontSize: 13 },
+  cursor: { fill: "rgb(19 35 63 / 0.04)" },
 };
 
-const Empty = ({ text }: { text: string }) => <p className="py-10 text-center text-sm text-ink-soft">{text}</p>;
+/** Couleur de référence de chaque famille de teintes. */
+export const FAMILY_COLORS: Record<ShadeFamily, string> = {
+  Rose: "#E58FA0",
+  "Pêche / corail": "#EE9474",
+  Rouge: "#C8243B",
+  "Baie / prune": "#8E3557",
+  Mauve: "#A884B5",
+  "Nude / brun": "#B98667",
+  Autre: "#C9CED6",
+};
+
+const Empty = ({ text }: { text: string }) => <p className="py-12 text-center text-sm text-ink-faint">{text}</p>;
 
 export function PriceByBrandChart({ items }: { items: ItemView[] }) {
   const map = new Map<string, { brand: string; US?: number; EU?: number }>();
@@ -25,17 +33,17 @@ export function PriceByBrandChart({ items }: { items: ItemView[] }) {
     map.set(i.circana.brand, row);
   }
   const data = [...map.values()];
-  if (!data.length) return <Empty text="Pas encore de prix collectés." />;
+  if (!data.length) return <Empty text="Les prix apparaîtront avec les premières fiches." />;
   return (
     <ResponsiveContainer width="100%" height={300}>
-      <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 48 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#e3e0d8" vertical={false} />
-        <XAxis dataKey="brand" angle={-30} textAnchor="end" interval={0} tick={{ fontSize: 11 }} />
-        <YAxis unit=" €" tick={{ fontSize: 11 }} />
-        <Tooltip formatter={(v) => `${Number(v).toFixed(2)} €`} />
-        <Legend verticalAlign="top" height={28} />
-        <Bar dataKey="US" name="États-Unis" fill={US} radius={[4, 4, 0, 0]} />
-        <Bar dataKey="EU" name="Europe" fill={EU} radius={[4, 4, 0, 0]} />
+      <BarChart data={data} margin={{ top: 4, right: 4, left: -8, bottom: 48 }} barGap={3}>
+        <CartesianGrid stroke={GRID} vertical={false} />
+        <XAxis dataKey="brand" angle={-30} textAnchor="end" interval={0} tick={TICK} axisLine={false} tickLine={false} />
+        <YAxis unit=" €" tick={TICK} axisLine={false} tickLine={false} />
+        <Tooltip formatter={(v) => `${Number(v).toFixed(2)} €`} {...TOOLTIP} />
+        <Legend verticalAlign="top" height={30} iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 13 }} />
+        <Bar dataKey="US" name="États-Unis" fill={US} radius={[5, 5, 0, 0]} maxBarSize={22} />
+        <Bar dataKey="EU" name="Europe" fill={EU} radius={[5, 5, 0, 0]} maxBarSize={22} />
       </BarChart>
     </ResponsiveContainer>
   );
@@ -53,32 +61,14 @@ export function SalesByBrandChart({ items }: { items: ItemView[] }) {
   if (!data.length) return <Empty text="Aucune donnée de ventes dans le fichier." />;
   return (
     <ResponsiveContainer width="100%" height={300}>
-      <BarChart data={data} layout="vertical" margin={{ top: 8, right: 16, left: 24, bottom: 8 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#e3e0d8" horizontal={false} />
-        <XAxis type="number" unit=" M$" tick={{ fontSize: 11 }} />
-        <YAxis type="category" dataKey="brand" width={120} tick={{ fontSize: 11 }} />
-        <Tooltip formatter={(v) => `${Number(v).toFixed(2)} M$`} />
-        <Legend verticalAlign="top" height={28} />
-        <Bar dataKey="US" name="États-Unis" stackId="s" fill={US} />
-        <Bar dataKey="EU" name="Europe" stackId="s" fill={EU} radius={[0, 4, 4, 0]} />
-      </BarChart>
-    </ResponsiveContainer>
-  );
-}
-
-export function ShadeFamiliesChart({ stats }: { stats: ReportStats }) {
-  const families = Object.keys(FAMILY_COLORS) as ShadeFamily[];
-  const data = stats.shadeFamilies.map((b) => ({ brand: b.brand, ...b.families }));
-  if (!data.length) return <Empty text="Aucune teinte collectée." />;
-  return (
-    <ResponsiveContainer width="100%" height={300}>
-      <BarChart data={data} layout="vertical" margin={{ top: 8, right: 16, left: 24, bottom: 8 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#e3e0d8" horizontal={false} />
-        <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
-        <YAxis type="category" dataKey="brand" width={120} tick={{ fontSize: 11 }} />
-        <Tooltip />
-        <Legend verticalAlign="top" height={44} wrapperStyle={{ fontSize: 12 }} />
-        {families.map((f) => <Bar key={f} dataKey={f} stackId="f" fill={FAMILY_COLORS[f]} />)}
+      <BarChart data={data} layout="vertical" margin={{ top: 4, right: 12, left: 8, bottom: 4 }}>
+        <CartesianGrid stroke={GRID} horizontal={false} />
+        <XAxis type="number" unit=" M$" tick={TICK} axisLine={false} tickLine={false} />
+        <YAxis type="category" dataKey="brand" width={124} tick={TICK} axisLine={false} tickLine={false} />
+        <Tooltip formatter={(v) => `${Number(v).toFixed(2)} M$`} {...TOOLTIP} />
+        <Legend verticalAlign="top" height={30} iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 13 }} />
+        <Bar dataKey="US" name="États-Unis" stackId="s" fill={US} maxBarSize={18} />
+        <Bar dataKey="EU" name="Europe" stackId="s" fill={EU} radius={[0, 5, 5, 0]} maxBarSize={18} />
       </BarChart>
     </ResponsiveContainer>
   );
@@ -86,15 +76,15 @@ export function ShadeFamiliesChart({ stats }: { stats: ReportStats }) {
 
 export function FormatsChart({ stats }: { stats: ReportStats }) {
   const data = stats.formats.slice(0, 8);
-  if (!data.length) return <Empty text="Aucun format collecté." />;
+  if (!data.length) return <Empty text="Aucun format relevé pour l'instant." />;
   return (
-    <ResponsiveContainer width="100%" height={300}>
-      <BarChart data={data} layout="vertical" margin={{ top: 8, right: 16, left: 24, bottom: 8 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#e3e0d8" horizontal={false} />
-        <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
-        <YAxis type="category" dataKey="format" width={170} tick={{ fontSize: 11 }} />
-        <Tooltip />
-        <Bar dataKey="count" name="Produits" fill={US} radius={[0, 4, 4, 0]} />
+    <ResponsiveContainer width="100%" height={Math.max(160, data.length * 34 + 20)}>
+      <BarChart data={data} layout="vertical" margin={{ top: 4, right: 12, left: 8, bottom: 4 }}>
+        <CartesianGrid stroke={GRID} horizontal={false} />
+        <XAxis type="number" allowDecimals={false} domain={[0, "dataMax"]} tick={TICK} axisLine={false} tickLine={false} />
+        <YAxis type="category" dataKey="format" width={190} tick={TICK} axisLine={false} tickLine={false} />
+        <Tooltip {...TOOLTIP} />
+        <Bar dataKey="count" name="Produits" fill={US} radius={[0, 5, 5, 0]} maxBarSize={18} />
       </BarChart>
     </ResponsiveContainer>
   );

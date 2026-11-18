@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { api, fmtDate, fmtEur } from "@/lib/client";
 import { Private } from "@/components/Session";
 import { StatusBadge } from "@/components/StatusBadge";
-import { Card, ErrorText } from "@/components/ui";
+import { Card, ErrorText, PageHeader, Skeleton, controlCls } from "@/components/ui";
 import type { Site } from "@/lib/site-types";
 import type { ClientProduct } from "@/lib/types";
 
@@ -24,26 +24,23 @@ function Catalogue() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Catalogues</h1>
-        <p className="mt-1 text-ink-soft">Les sites surveillés par Lookout et votre catalogue produits enregistré.</p>
-      </div>
+      <PageHeader title="Catalogues" meta={<span>Les sites surveillés par Lookout et votre catalogue produits enregistré.</span>} />
       <ErrorText>{error}</ErrorText>
 
       <Card>
         <div className="mb-4 flex items-center justify-between">
           <h2 className="font-semibold">Sites surveillés ({list.length})</h2>
-          <select aria-label="Filtrer par zone" value={zone} onChange={(e) => setZone(e.target.value as typeof zone)} className="rounded-md border border-line bg-paper px-2 py-1.5 text-sm">
+          <select aria-label="Filtrer par zone" value={zone} onChange={(e) => setZone(e.target.value as typeof zone)} className={`${controlCls}`}>
             <option value="all">Toutes les zones</option>
             <option value="US">États-Unis</option>
             <option value="EU">Europe</option>
           </select>
         </div>
-        {!sites && <p className="text-ink-soft">Chargement…</p>}
+        {!sites && <div className="space-y-2">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-10" />)}</div>}
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="text-ink-soft">
-              <tr><th className="py-2 pr-4">Site</th><th className="pr-4">Zone</th><th className="pr-4">Catégories</th><th className="pr-4">Méthode</th><th>Dernière collecte</th></tr>
+              <tr><th className="py-2 pr-4">Site</th><th className="pr-4">Zone</th><th className="hidden pr-4 md:table-cell">Catégories</th><th className="pr-4">Méthode</th><th className="hidden md:table-cell">Dernière collecte</th></tr>
             </thead>
             <tbody>
               {list.map((s) => (
@@ -52,10 +49,10 @@ function Catalogue() {
                     <span className="font-medium">{s.name}</span> <span className="text-ink-soft">{s.domain !== s.name && s.domain}</span>
                     {s.source === "discovered" && <span className="ml-2 rounded bg-amber/20 px-1.5 py-0.5 text-xs text-amber-dark">ajouté par une analyse</span>}
                   </td>
-                  <td className="pr-4">{s.zone}{s.country && ` · ${s.country}`}</td>
-                  <td className="pr-4">{s.categories.join(", ") || "—"}</td>
+                  <td className="pr-4">{s.zone}<span className="hidden sm:inline">{s.country && ` · ${s.country}`}</span></td>
+                  <td className="hidden pr-4 md:table-cell">{s.categories.join(", ") || "—"}</td>
                   <td className="pr-4"><StatusBadge status={s.method} /></td>
-                  <td className="text-ink-soft">{s.lastSuccessAt ? fmtDate(s.lastSuccessAt) : "—"}</td>
+                  <td className="hidden text-ink-soft md:table-cell">{s.lastSuccessAt ? fmtDate(s.lastSuccessAt) : "—"}</td>
                 </tr>
               ))}
             </tbody>

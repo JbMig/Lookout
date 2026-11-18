@@ -3,6 +3,9 @@ import { bestMatches, MATCH_THRESHOLD } from "./matching";
 import { withFamilies } from "./shades";
 import type { CatalogInsights, CatalogProductInsight, ClientProduct, ItemView, ReportStats, ShadeFamily, Trends, Zone } from "./types";
 
+/** Nombre au format français (virgule décimale). */
+const fr = (v: number, digits: number) => v.toLocaleString("fr-FR", { minimumFractionDigits: digits, maximumFractionDigits: digits });
+
 const avg = (xs: number[]) => (xs.length ? Math.round((xs.reduce((a, b) => a + b, 0) / xs.length) * 100) / 100 : 0);
 
 /* ---------- Statistiques du marché (calculées, jamais inventées par le LLM) ---------- */
@@ -151,7 +154,7 @@ export async function writeAnalysis(
       (stats.awaitingTeam ? ` (${stats.awaitingTeam} encore en traitement par l'équipe).` : ".") +
       (leader ? ` La meilleure vente est ${leader.marque} ${leader.produit} (${leader.zone}).` : ""),
     us && eu
-      ? `Le prix moyen constaté est de ${us.toFixed(2)} € aux États-Unis contre ${eu.toFixed(2)} € en Europe, soit un écart de ${Math.round(((eu - us) / us) * 100)} %. Les produits proposent en moyenne ${stats.shadeCountAvg} teintes.`
+      ? `Le prix moyen constaté est de ${fr(us, 2)} € aux États-Unis contre ${fr(eu, 2)} € en Europe, soit un écart de ${Math.round(((eu - us) / us) * 100)} %. Les produits proposent en moyenne ${fr(stats.shadeCountAvg, 1)} teintes.`
       : `Les prix moyens par zone seront comparés dès que les deux zones contiendront des fiches complètes.`,
     catalog ? catalog.summary : "",
     trends?.items.length

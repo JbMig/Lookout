@@ -9,7 +9,7 @@ import { demoResists, demoSheet } from "./agents/demo";
 import { mergeSheets, missingFields } from "./product";
 import { toEur } from "./currency";
 import { withFamilies } from "./shades";
-import { sitesFor, siteByDomain } from "./sites";
+import { ensureSite, recordSuccess, sitesFor, siteByDomain } from "./sites";
 import { computeCatalog, computeStats, writeAnalysis } from "./analysis";
 import { computeTrends } from "./trends";
 import { loadSheets, openComputerUseJob, openTeamJob, saveMarketProduct, sessionOf } from "./market";
@@ -61,7 +61,7 @@ async function saveData(report: ReportDbRow, patch: Partial<ReportDbRow["data"]>
 async function collectItem(report: ReportDbRow, item: StoredItem) {
   const row = item.circana;
   const category = report.config.category;
-  const sites = sitesFor(row.zone, report.config.params.siteIds ?? []);
+  const sites = await sitesFor(row.zone, report.config.params.siteIds ?? []);
   const domains = sites.map((s) => s.domain);
 
   if (isDemo.linkup) {
@@ -91,7 +91,7 @@ async function collectItem(report: ReportDbRow, item: StoredItem) {
     logRun("linkup", "discovery", false, report.id);
   }
   let domain = domainOf(url);
-  const site = siteByDomain(domain);
+  const site = await siteByDomain(domain);
 
   if (url && site?.method !== "computer_use") {
     try {
@@ -168,6 +168,7 @@ export async function pollJob(job: EnrichmentJobRow): Promise<boolean> {
       category: product.row.category ?? "", existingId: job.target_id,
     });
     const missing = missingFields(merged);
+    if (merged && !missing.length) await recordSuccess(product.row.source_site, "hcompany").catch(() => null);
     await db.update("enrichment_jobs", job.id, {
       status: merged ? "completed" : "failed",
       finished_at: new Date().toISOString(),
@@ -308,6 +309,11 @@ export async function step(report: ReportDbRow) {
   await saveData(report, { items, phase: "collecting" }, { status: "generating" });
 
   await Promise.all(batch.map((i) => collectItem(report, i).catch((e) => touch(i, { status: "failed", error: (e as Error).message }))));
+  // Sites rencontrés : ajoutés à la liste s'ils sont nouveaux, et dernier succès enregistré.
+  for (const i of batch) {
+    await ensureSite(i.siteDomain, i.circana.zone).catch(() => null);
+    if (i.status === "done") await recordSuccess(i.siteDomain, i.method).catch(() => null);
+  }
   await reconcile(report);
   await saveData(report, { items });
 

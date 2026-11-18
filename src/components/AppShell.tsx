@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { BookOpenCheck, FilePlus2, Layers, LogOut, Menu, ShieldCheck, UserRound, X } from "lucide-react";
+import { BookOpenCheck, FilePlus2, Layers, LogOut, Menu, ShieldCheck, UserRound, X, Radar } from "lucide-react";
 import { Logo } from "./Logo";
 import { useSession } from "./Session";
 import { DemoBanner } from "./DemoBanner";
@@ -49,6 +49,7 @@ function Rail({ onNavigate }: { onNavigate?: () => void }) {
     { href: "/", label: "Analyses", icon: BookOpenCheck, match: (p: string) => p === "/" || p.startsWith("/reports") },
     { href: "/new", label: "Nouvelle analyse", icon: FilePlus2, match: (p: string) => p === "/new" },
     { href: "/catalogue", label: "Catalogues", icon: Layers, match: (p: string) => p === "/catalogue" },
+    { href: "/social", label: "Social listening", icon: Radar, match: (p: string) => p.startsWith("/social") },
     ...(me?.user.isStaff ? [{ href: "/admin", label: "Administration", icon: ShieldCheck, match: (p: string) => p === "/admin" }] : []),
   ];
 

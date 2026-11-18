@@ -59,25 +59,27 @@ export function ErrorText({ children }: { children: React.ReactNode }) {
   return <p className="text-sm text-bad" role="alert">{children}</p>;
 }
 
-/** Onglets : liens d'ancre ou boutons, soulignés en bleu nuit. */
-export function Tabs({ items, active, onSelect }: { items: { id: string; label: string; count?: number }[]; active: string; onSelect?: (id: string) => void }) {
+/** Onglets : chaque onglet affiche sa propre partie (pas de défilement entre sections). */
+export function Tabs({ items, active, onSelect }: { items: { id: string; label: string; count?: number }[]; active: string; onSelect: (id: string) => void }) {
   return (
-    <nav aria-label="Sections" className="flex gap-6 overflow-x-auto border-b border-line">
+    <div role="tablist" aria-label="Sections" className="flex gap-6 overflow-x-auto border-b border-line">
       {items.map((t) => (
-        <a
+        <button
           key={t.id}
-          href={`#${t.id}`}
-          onClick={onSelect ? () => onSelect(t.id) : undefined}
-          aria-current={active === t.id ? "true" : undefined}
+          type="button"
+          role="tab"
+          id={`tab-${t.id}`}
+          aria-selected={active === t.id}
+          onClick={() => onSelect(t.id)}
           className={`-mb-px whitespace-nowrap border-b-2 py-2.5 text-sm font-semibold transition-colors duration-150 ${
             active === t.id ? "border-night text-ink" : "border-transparent text-ink-soft hover:text-ink"
           }`}
         >
           {t.label}
           {t.count !== undefined && <span className="ml-1.5 font-medium text-ink-faint">{t.count}</span>}
-        </a>
+        </button>
       ))}
-    </nav>
+    </div>
   );
 }
 

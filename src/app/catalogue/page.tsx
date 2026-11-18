@@ -1,10 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
-import { api, fmtEur } from "@/lib/client";
+import { api, fmtDate, fmtEur } from "@/lib/client";
 import { Private } from "@/components/Session";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Card, ErrorText } from "@/components/ui";
-import type { Site } from "@/lib/sites";
+import type { Site } from "@/lib/site-types";
 import type { ClientProduct } from "@/lib/types";
 
 type SavedProduct = ClientProduct & { id: string; updated_at: string };
@@ -43,23 +43,26 @@ function Catalogue() {
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="text-ink-soft">
-              <tr><th className="py-2 pr-4">Site</th><th className="pr-4">Zone</th><th className="pr-4">Type</th><th className="pr-4">Catégories</th><th>Méthode</th></tr>
+              <tr><th className="py-2 pr-4">Site</th><th className="pr-4">Zone</th><th className="pr-4">Catégories</th><th className="pr-4">Méthode</th><th>Dernière collecte</th></tr>
             </thead>
             <tbody>
               {list.map((s) => (
                 <tr key={s.domain} className="border-t border-line">
-                  <td className="py-2 pr-4"><span className="font-medium">{s.name}</span> <span className="text-ink-soft">{s.domain}</span></td>
-                  <td className="pr-4">{s.zone} · {s.country}</td>
-                  <td className="pr-4">{s.type}</td>
-                  <td className="pr-4">{s.categories.join(", ")}</td>
-                  <td><StatusBadge status={s.method} /></td>
+                  <td className="py-2 pr-4">
+                    <span className="font-medium">{s.name}</span> <span className="text-ink-soft">{s.domain !== s.name && s.domain}</span>
+                    {s.source === "discovered" && <span className="ml-2 rounded bg-amber/20 px-1.5 py-0.5 text-xs text-amber-dark">ajouté par une analyse</span>}
+                  </td>
+                  <td className="pr-4">{s.zone}{s.country && ` · ${s.country}`}</td>
+                  <td className="pr-4">{s.categories.join(", ") || "—"}</td>
+                  <td className="pr-4"><StatusBadge status={s.method} /></td>
+                  <td className="text-ink-soft">{s.lastSuccessAt ? fmtDate(s.lastSuccessAt) : "—"}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
         <p className="mt-3 text-xs text-ink-soft">
-          La liste des sites est définie dans le code de Lookout (src/lib/sites.ts) : pour en ajouter un, contactez l&apos;équipe.
+          Les sites rencontrés pendant une analyse sont ajoutés automatiquement à cette liste. L&apos;équipe Lookout règle ensuite leur méthode de collecte.
         </p>
       </Card>
 

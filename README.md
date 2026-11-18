@@ -36,7 +36,7 @@ rapport visuel sourcé, partageable en un clic.
 | Comptes (Supabase Auth + `profiles`), espace de travail unique partagé | File de l'équipe (`enrichment_jobs`) : fiches que le scraping n'a pas complétées |
 | Import Circana (archivé dans `circana_imports` / `circana_sales` et le bucket `circana-uploads`) | Lancement et suivi des sessions H Company (computer use) |
 | Catalogue client importé ou réutilisé (`catalog_products`) | Saisie manuelle d'une fiche, mise à l'écart |
-| Périmètre : zones, sites, marques exclues, produits ciblés | Sites et parcours de computer use (définis dans `src/lib/sites.ts`) |
+| Périmètre : zones, sites, marques exclues, produits ciblés | Sites (table `sites`) : méthode, parcours de computer use, ajout manuel ; sites découverts ajoutés automatiquement |
 | Rapport : synthèse rédigée, audit du catalogue, marché, tendances, fiches filtrables avec lien source | Utilisateurs inscrits, statistiques de collecte |
 | Historique, relance, lien de partage en lecture seule, export PDF | |
 | Page Offres indicative (paiement Stripe à venir) | |
@@ -84,7 +84,7 @@ Les fichiers d'exemple (`public/exemple-*.csv`) contiennent des **chiffres ficti
 ## Mise en production
 
 ### 1. Supabase
-L'application utilise **le schéma déjà en place** dans le projet Supabase (aucune migration à exécuter) :
+L'application utilise le schéma déjà en place dans le projet Supabase, plus la table `sites` (`supabase/migrations/`) :
 voir `supabase/SCHEMA.md` pour la correspondance entre les tables et l'application.
 1. **Authentication > Providers** : e-mail activé.
 2. Renseignez `SUPABASE_URL`, `SUPABASE_ANON_KEY` et `SUPABASE_SERVICE_ROLE_KEY` (Project Settings > API).
@@ -110,7 +110,7 @@ Gardez la logique (`src/lib/`, `src/app/api/`) hors de v0 et fusionnez ses pull 
 | `src/lib/agents/` | `discovery.ts` (Linkup), `scraper.ts`, `extractor.ts` (Linkup), `navigator.ts` (H Company), `demo.ts` |
 | `src/lib/pipeline.ts` | Enchaînement des étapes, file de l'équipe, finalisation (analyses, growth_opportunities) |
 | `src/lib/market.ts`, `imports.ts` | Écriture des fiches (market_*), de la file (enrichment_jobs), des imports Circana et du catalogue |
-| `src/lib/sites.ts` | Sites surveillés et parcours de computer use |
+| `src/lib/sites.ts` | Sites surveillés (table `sites`), ajout automatique des sites découverts |
 | `src/lib/analysis.ts` | Statistiques, audit du catalogue, analyse rédigée |
 | `src/lib/tabular.ts`, `excel.ts` | Import CSV / Excel / JSON et correspondance des colonnes |
 | `src/lib/shades.ts`, `matching.ts`, `trends.ts` | Familles de teintes, rapprochement, tendances |

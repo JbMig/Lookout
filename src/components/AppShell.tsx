@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 import { BookOpenCheck, FilePlus2, Layers, LogOut, Menu, ShieldCheck, UserRound, X, Radar } from "lucide-react";
 import { Logo } from "./Logo";
 import { useSession } from "./Session";
-import { DemoBanner } from "./DemoBanner";
 import { api, fmtDate } from "@/lib/client";
 
 interface Recent {
@@ -134,7 +133,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   if (bare) {
     return (
       <div className="flex min-h-screen flex-col">
-        <DemoBanner />
         <main className="flex-1">{children}</main>
       </div>
     );
@@ -173,7 +171,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       <div className="min-w-0">
-        <DemoBanner />
         <main className="mx-auto w-full max-w-[1320px] px-5 py-7 sm:px-8 lg:px-10 lg:py-8">{children}</main>
       </div>
     </div>

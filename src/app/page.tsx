@@ -33,7 +33,7 @@ function History() {
   const filtered = (reports ?? []).filter((r) => `${r.name} ${r.category}`.toLowerCase().includes(q.toLowerCase()));
   const month = new Date().toISOString().slice(0, 7);
   const thisMonth = (reports ?? []).filter((r) => r.created_at.startsWith(month)).length;
-  const first = me!.user.fullName?.split(" ")[0];
+  const first = me!.user.fullName && me!.user.fullName !== "Compte démo" ? me!.user.fullName.split(" ")[0] : null;
 
   return (
     <div className="space-y-7">

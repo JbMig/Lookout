@@ -45,6 +45,12 @@ export interface CircanaRow {
   salesValue?: number;
   units?: number;
   avgPrice?: number;
+  /** Devise des ventes (USD, EUR…), si le fichier la précise. */
+  currency?: string;
+  /** Segment Circana (ex. Liquid Blush). */
+  segment?: string;
+  /** Teintes listées par Circana pour ce produit (lignes SKU). */
+  shades?: string[];
   history?: { period: string; salesValue?: number; units?: number }[];
 }
 

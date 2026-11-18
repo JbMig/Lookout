@@ -12,7 +12,7 @@ export interface ParsedTable {
   rows: RawRow[];
 }
 
-export const MAX_IMPORT_ROWS = 2000;
+export const MAX_IMPORT_ROWS = 5000;
 
 export function parseCsv(text: string): ParsedTable {
   const p = Papa.parse<RawRow>(text.replace(/^﻿/, "").trim(), { header: true, skipEmptyLines: true });
@@ -51,6 +51,9 @@ export const CIRCANA_FIELDS: FieldDef[] = [
   { key: "salesValue", label: "Ventes (valeur)", aliases: ["dollar sales", "sales", "ventes", "sales value", "value sales", "ca", "chiffre d'affaires"] },
   { key: "units", label: "Unités", aliases: ["units", "unités", "unites", "unit sales", "volume"] },
   { key: "avgPrice", label: "Prix moyen", aliases: ["avg price", "average price", "prix moyen", "avg unit price", "price", "prix"] },
+  { key: "currency", label: "Devise", aliases: ["currency", "devise"] },
+  { key: "segment", label: "Segment / format", aliases: ["segment", "format", "sous-catégorie", "subcategory", "category", "catégorie"] },
+  { key: "shade", label: "Teinte", aliases: ["teinte", "shade", "nuance", "colour", "color"] },
 ];
 
 export const CATALOG_FIELDS: FieldDef[] = [
@@ -99,7 +102,12 @@ export function toNumber(v: unknown): number | undefined {
 
 const pick = (r: RawRow, m: Mapping, key: string) => (m[key] ? r[m[key]!]?.trim() : undefined);
 
-/** Une ligne par produit et par zone ; les périodes multiples sont regroupées dans `history`. */
+const add = (a?: number, b?: number) => (a === undefined && b === undefined ? undefined : (a ?? 0) + (b ?? 0));
+
+/**
+ * Une ligne par produit et par zone. Les périodes multiples sont regroupées dans `history` ;
+ * plusieurs lignes d'une même période (une par teinte, par exemple) sont additionnées.
+ */
 export function toCircanaRows(rows: RawRow[], m: Mapping): CircanaRow[] {
   const flat = rows
     .map((r) => ({
@@ -110,21 +118,150 @@ export function toCircanaRows(rows: RawRow[], m: Mapping): CircanaRow[] {
       salesValue: toNumber(pick(r, m, "salesValue")),
       units: toNumber(pick(r, m, "units")),
       avgPrice: toNumber(pick(r, m, "avgPrice")),
+      currency: pick(r, m, "currency")?.toUpperCase() || undefined,
+      segment: pick(r, m, "segment") || undefined,
+      shade: pick(r, m, "shade") || undefined,
     }))
     .filter((r) => r.brand && r.product);
 
-  const groups = new Map<string, CircanaRow[]>();
+  const groups = new Map<string, typeof flat>();
   for (const r of flat) {
     const key = `${r.brand.toLowerCase()}|${r.product.toLowerCase()}|${r.zone}`;
     groups.set(key, [...(groups.get(key) ?? []), r]);
   }
   return [...groups.values()].map((list) => {
-    const sorted = [...list].sort((a, b) => (a.period ?? "").localeCompare(b.period ?? ""));
-    const latest = sorted[sorted.length - 1];
-    return sorted.length > 1 && sorted.some((x) => x.period)
-      ? { ...latest, history: sorted.map((x) => ({ period: x.period ?? "", salesValue: x.salesValue, units: x.units })) }
-      : latest;
+    // Agrégation par période
+    const byPeriod = new Map<string, { period: string; salesValue?: number; units?: number; avgPrice?: number }>();
+    for (const x of list) {
+      const p = x.period ?? "";
+      const cur = byPeriod.get(p);
+      byPeriod.set(p, cur ? { ...cur, salesValue: add(cur.salesValue, x.salesValue), units: add(cur.units, x.units) } : { period: p, salesValue: x.salesValue, units: x.units, avgPrice: x.avgPrice });
+    }
+    const periods = [...byPeriod.values()].sort((a, b) => a.period.localeCompare(b.period));
+    const latest = periods[periods.length - 1];
+    const first = list[0];
+    const shades = [...new Set(list.map((x) => x.shade).filter(Boolean) as string[])];
+    const row: CircanaRow = {
+      brand: first.brand,
+      product: first.product,
+      zone: first.zone,
+      period: latest.period || undefined,
+      salesValue: latest.salesValue,
+      units: latest.units,
+      avgPrice: latest.avgPrice,
+      ...(first.currency ? { currency: first.currency } : {}),
+      ...(first.segment ? { segment: first.segment } : {}),
+      ...(shades.length ? { shades } : {}),
+    };
+    return periods.length > 1 && periods.some((x) => x.period)
+      ? { ...row, history: periods.map((x) => ({ period: x.period, salesValue: x.salesValue, units: x.units })) }
+      : row;
   });
+}
+
+/* ---------- Classeurs Circana « présentation » (titres, plusieurs feuilles, colonnes par période) ---------- */
+
+export interface Sheet {
+  name: string;
+  rows: string[][];
+}
+
+const norm = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+const BRAND_HEAD = ["marque", "brand", "brand name", "manufacturer brand"];
+const PRODUCT_HEAD = ["produit", "product", "product name", "item", "item description", "description", "nom du produit"];
+
+/** Colonne de ventes d'une période : « CA FY 2024 (K$) », « Dollar Sales 2025 », « Ventes T3 2026 (M€) »… */
+function periodColumn(header: string): { period: string; factor: number; currency?: string } | null {
+  const h = header.trim();
+  if (!/(ca|ventes|sales|chiffre|revenue|valeur|value)/i.test(h)) return null;
+  const m = h.match(/((?:FY|CY|YTD|MAT|T[1-4]|Q[1-4])\s*)?(\d{4})(\s*[-/]?\s*(?:T|Q)[1-4])?/i);
+  if (!m) return null;
+  const period = m[0].replace(/\s+/g, " ").trim().toUpperCase();
+  const unit = h.match(/\(\s*([KkMm])?\s*([$€£])\s*\)/);
+  const factor = unit?.[1]?.toUpperCase() === "K" ? 1_000 : unit?.[1]?.toUpperCase() === "M" ? 1_000_000 : 1;
+  const sym = unit?.[2] ?? (h.includes("€") ? "€" : h.includes("$") ? "$" : h.includes("£") ? "£" : undefined);
+  return { period, factor, currency: sym === "€" ? "EUR" : sym === "$" ? "USD" : sym === "£" ? "GBP" : undefined };
+}
+
+/** Zone lue dans le nom de la feuille ou son titre. */
+function zoneFrom(text: string): string | undefined {
+  const t = ` ${norm(text)} `;
+  if (/[\s(|—–-](us|usa|u\.s\.|etats-unis|united states|amerique du nord)[\s)|—–-]/.test(t)) return "US";
+  if (/[\s(|—–-](fr|france)[\s)|—–-]/.test(t)) return "France";
+  if (/[\s(|—–-](uk|royaume-uni|united kingdom)[\s)|—–-]/.test(t)) return "Royaume-Uni";
+  if (/[\s(|—–-](de|allemagne|germany)[\s)|—–-]/.test(t)) return "Allemagne";
+  if (/[\s(|—–-](eu|europe)[\s)|—–-]/.test(t)) return "Europe";
+  return undefined;
+}
+
+/** Segment lu dans le titre (« Top 50 SKU — Liquid Blush — ÉTATS-UNIS ») ou le nom de la feuille. */
+function segmentFrom(title: string, sheetName: string): string | undefined {
+  const parts = title.split(/\s[—–|]\s|\s-\s/).map((p) => p.trim()).filter(Boolean);
+  const candidate = parts.find((p) => !/top\s*\d+|sku|fy\s*\d{4}|vs|donnees|ytd/i.test(norm(p)) && !zoneFrom(p));
+  if (candidate) return candidate;
+  const fromName = sheetName.split(/\s-\s/).pop()?.trim();
+  return fromName && !zoneFrom(fromName) ? fromName : undefined;
+}
+
+/**
+ * Lit un classeur Circana mis en forme : titre en haut, en-tête plus bas, une colonne de ventes par période,
+ * zone et segment indiqués dans le titre ou le nom de la feuille. Renvoie un tableau « long »
+ * (une ligne par produit, teinte et période), ou null si aucune feuille ne ressemble à ce format.
+ */
+export function normalizeCircanaSheets(sheets: Sheet[]): ParsedTable | null {
+  const out: RawRow[] = [];
+  for (const sheet of sheets) {
+    const rows = sheet.rows;
+    const headerIdx = rows.slice(0, 20).findIndex((r) => {
+      const cells = r.map(norm);
+      const b = cells.findIndex((c) => BRAND_HEAD.includes(c));
+      const p = cells.findIndex((c, i) => i !== b && PRODUCT_HEAD.includes(c));
+      return b >= 0 && p >= 0;
+    });
+    if (headerIdx < 0) continue;
+    const head = rows[headerIdx];
+    const cells = head.map(norm);
+    const col = (names: string[]) => cells.findIndex((c) => names.includes(c));
+    const brandCol = col(BRAND_HEAD);
+    const productCol = cells.findIndex((c, i) => i !== brandCol && PRODUCT_HEAD.includes(c));
+    const shadeCol = col(["teinte", "shade", "nuance", "couleur", "colour", "color"]);
+    const zoneCol = col(["zone", "market", "marche", "pays", "country", "region", "geography"]);
+    const segmentCol = col(["segment", "format", "sous-categorie", "subcategory"]);
+    const periods = head.map((h, i) => ({ i, p: periodColumn(h) })).filter((x) => x.p) as { i: number; p: NonNullable<ReturnType<typeof periodColumn>> }[];
+    if (!periods.length) continue;
+
+    const title = rows.slice(0, headerIdx).flat().filter(Boolean).join(" — ");
+    const zone = zoneFrom(sheet.name) ?? zoneFrom(title);
+    const segment = segmentFrom(title, sheet.name);
+    for (const r of rows.slice(headerIdx + 1)) {
+      const brand = r[brandCol]?.trim();
+      const product = r[productCol]?.trim();
+      if (!brand || !product) continue;
+      for (const { i, p } of periods) {
+        const v = toNumber(r[i]);
+        if (v === undefined) continue;
+        out.push({
+          Marque: brand,
+          Produit: product,
+          Teinte: shadeCol >= 0 ? (r[shadeCol]?.trim() ?? "") : "",
+          Segment: segmentCol >= 0 ? (r[segmentCol]?.trim() ?? "") : (segment ?? ""),
+          Zone: zoneCol >= 0 ? (r[zoneCol]?.trim() ?? "") : (zone ?? ""),
+          "Période": p.period,
+          Ventes: String(Math.round(v * p.factor * 100) / 100),
+          Devise: p.currency ?? "",
+        });
+      }
+    }
+  }
+  if (!out.length) return null;
+  const headers = ["Marque", "Produit", "Teinte", "Segment", "Zone", "Période", "Ventes", "Devise"];
+  return { headers, rows: out.slice(0, MAX_IMPORT_ROWS) };
+}
+
+/** CSV en matrice brute (pour les exports mis en forme). */
+export function csvMatrix(text: string): string[][] {
+  const p = Papa.parse<string[]>(text.replace(/^\uFEFF/, "").trim(), { header: false, skipEmptyLines: false });
+  return p.data.map((r) => r.map((c) => String(c ?? "")));
 }
 
 export function toClientProducts(rows: RawRow[], m: Mapping): ClientProduct[] {

@@ -52,7 +52,7 @@ function salesTrend(item: ItemView): CatalogProductInsight["trend"] {
   const h = (item.circana.history ?? []).filter((x) => x.salesValue !== undefined);
   if (h.length < 2) return "inconnu";
   const prev = h[h.length - 2].salesValue!, last = h[h.length - 1].salesValue!;
-  if (!prev) return "inconnu";
+  if (!prev) return last > 0 ? "progresse" : "inconnu"; // nouveauté
   const change = (last - prev) / prev;
   return change > 0.05 ? "progresse" : change < -0.05 ? "décline" : "stable";
 }
@@ -114,6 +114,7 @@ export async function writeAnalysis(
       produit: i.circana.product,
       zone: i.circana.zone,
       ventes: i.circana.salesValue,
+      devise_ventes: i.circana.currency ?? "USD",
       prix_eur: i.product?.priceEur,
       teintes: i.product?.shades.length,
       formats: i.product?.formats.map((f) => f.size),

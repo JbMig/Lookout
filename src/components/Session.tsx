@@ -71,18 +71,24 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
   // Une seule vérification, au chargement de l'app.
   useEffect(() => {
-    const stored = readStored();
-    if (stored) {
-      setMeState(stored);
-      setLoading(false);
-      // Rafraîchit le nom affiché sans jamais déconnecter.
-      api<Me>("/api/me").then(setMe).catch(() => null);
-      return;
-    }
-    api<Me>("/api/me")
-      .then(setMe)
-      .catch(() => setMeState(null))
-      .finally(() => setLoading(false));
+    let alive = true;
+    Promise.resolve(readStored()).then((stored) => {
+      if (!alive) return;
+      if (stored) {
+        setMeState(stored);
+        setLoading(false);
+        // Rafraîchit le nom affiché sans jamais déconnecter.
+        api<Me>("/api/me").then((m) => alive && setMe(m)).catch(() => null);
+        return;
+      }
+      api<Me>("/api/me")
+        .then((m) => alive && setMe(m))
+        .catch(() => alive && setMeState(null))
+        .finally(() => alive && setLoading(false));
+    });
+    return () => {
+      alive = false;
+    };
   }, [setMe]);
 
   useEffect(() => {

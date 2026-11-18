@@ -17,3 +17,12 @@ describe("periodToDate", () => {
     expect(periodToDate("n'importe quoi", d)).toBe("2026-11-17");
   });
 });
+
+describe("score des opportunités", () => {
+  it("reste entre 0 et 1 (colonne numeric(4,3))", async () => {
+    const { opportunityScore } = await import("../src/lib/pipeline");
+    expect(opportunityScore(-18, 50)).toBe(0.36);
+    expect(opportunityScore(250, 50)).toBe(1);
+    expect(opportunityScore(-3.8, 10)).toBe(0.38);
+  });
+});

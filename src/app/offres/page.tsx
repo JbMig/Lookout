@@ -1,4 +1,7 @@
 import Link from "next/link";
+import { Check } from "lucide-react";
+import { PublicTop } from "@/components/PublicTop";
+import { btnPrimary, btnSecondary } from "@/components/ui";
 
 /** Offres affichées à titre indicatif : le paiement (Stripe) et les quotas ne sont pas encore branchés. */
 const PLANS = {
@@ -11,24 +14,26 @@ const CONTACT = process.env.NEXT_PUBLIC_CONTACT_EMAIL || "contact@example.com";
 
 export default function OffersPage() {
   return (
-    <div className="space-y-8">
+    <>
+    <PublicTop><Link href="/login" className={btnPrimary}>Se connecter</Link></PublicTop>
+    <div className="mx-auto max-w-[1100px] space-y-10 px-5 py-14 sm:px-8">
       <div className="text-center">
-        <h1 className="text-3xl font-semibold">Offres</h1>
+        <h1 className="text-[34px] font-semibold tracking-[-0.025em]">Offres</h1>
         <p className="mt-2 text-ink-soft">
           Le paiement en ligne (Stripe) arrive bientôt. En attendant, contactez-nous : nous activons votre offre sous 24 h.
         </p>
       </div>
       <div className="grid gap-4 md:grid-cols-3">
         {Object.entries(PLANS).map(([id, p]) => (
-          <section key={id} className={`flex flex-col rounded-2xl border bg-paper p-6 ${id === "pro" ? "border-ink" : "border-line"}`}>
+          <section key={id} className={`flex flex-col rounded-[14px] border bg-paper p-6 ${id === "pro" ? "border-night ring-1 ring-night" : "border-line"}`}>
             <h2 className="text-lg font-semibold">{p.label}</h2>
             <p className="mt-1 text-2xl font-semibold">{p.price}</p>
             <ul className="mt-4 flex-1 space-y-2 text-sm">
-              {p.features.map((f) => <li key={f}>✓ {f}</li>)}
+              {p.features.map((f) => <li key={f} className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-ok" aria-hidden />{f}</li>)}
             </ul>
             <Link
               href={id === "trial" ? "/login" : `mailto:${CONTACT}?subject=${encodeURIComponent(`Offre Lookout ${p.label}`)}`}
-              className={`mt-6 rounded-md px-4 py-2 text-center text-sm font-medium ${id === "pro" ? "bg-ink text-white" : "border border-line"}`}
+              className={`mt-6 ${id === "pro" ? btnPrimary : btnSecondary}`}
             >
               {id === "trial" ? "Commencer l'essai" : "Nous contacter"}
             </Link>
@@ -36,5 +41,6 @@ export default function OffersPage() {
         ))}
       </div>
     </div>
+    </>
   );
 }

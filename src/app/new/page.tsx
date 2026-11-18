@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { api } from "@/lib/client";
 import { Private } from "@/components/Session";
 import { FileImport, type ImportedTable } from "@/components/FileImport";
-import { Card, ErrorText, Field, inputCls } from "@/components/ui";
+import { Card, ErrorText, Field, inputCls, PageHeader, btnAccent } from "@/components/ui";
 import { missingRequired, toCircanaRows } from "@/lib/tabular";
 import type { Zone } from "@/lib/types";
 import type { Site } from "@/lib/site-types";
@@ -91,11 +91,8 @@ function NewAnalysis() {
   }
 
   return (
-    <form onSubmit={submit} className="space-y-6" noValidate>
-      <div>
-        <h1 className="text-2xl font-semibold">Nouvelle analyse</h1>
-        <p className="mt-1 text-ink-soft">Importez vos ventes Circana, choisissez votre périmètre, Lookout s&apos;occupe du reste.</p>
-      </div>
+    <form onSubmit={submit} className="space-y-6 pb-4" noValidate>
+      <PageHeader title="Nouvelle analyse" meta={<span>Importez vos ventes Circana et choisissez le périmètre : Lookout retrouve chaque produit sur le web.</span>} />
 
       <Card>
         <h2 className="mb-3 font-semibold">1. Analyse</h2>
@@ -220,7 +217,7 @@ function NewAnalysis() {
       </Card>
 
       <ErrorText>{error}</ErrorText>
-      <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl bg-ink px-6 py-4 text-white">
+      <div className="sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-4 rounded-[14px] bg-night px-6 py-4 text-white shadow-[0_12px_30px_-14px_rgb(19_35_63/0.6)]">
         <p className="text-sm">
           {circana ? (
             <>
@@ -232,7 +229,7 @@ function NewAnalysis() {
             "Importez le fichier Circana pour commencer."
           )}
         </p>
-        <button type="submit" disabled={busy} className="rounded-md bg-amber px-5 py-2.5 text-sm font-medium text-ink disabled:opacity-60">
+        <button type="submit" disabled={busy} className={`${btnAccent} px-5 py-2.5`}>
           {busy ? "Lancement…" : "Lancer l'analyse"}
         </button>
       </div>

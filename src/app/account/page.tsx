@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { api } from "@/lib/client";
 import { Private, useSession } from "@/components/Session";
-import { Card, ErrorText, Field, btnSecondary, inputCls } from "@/components/ui";
+import { Card, ErrorText, Field, PageHeader, btnSecondary, inputCls } from "@/components/ui";
 
 function Account() {
   const { me, refresh } = useSession();
@@ -26,7 +26,7 @@ function Account() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Mon compte</h1>
+      <PageHeader title="Mon compte" meta={<span>{me!.user.email}</span>} />
       <ErrorText>{error}</ErrorText>
       {msg && <p className="text-sm text-ok">{msg}</p>}
       <Card>

@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-18T17:30:00+01:00",
+  "title": "Design System: Lookout",
+  "extensions": {
+    "colorMeta": {
+      "night": { "role": "primary", "displayName": "Bleu nuit", "canonical": "#13233f", "tonalRamp": ["#0d1a30", "#13233f", "#1c3256", "#24406b", "#2a3f63"] },
+      "amber": { "role": "secondary", "displayName": "Ambre", "canonical": "#f2a33a", "tonalRamp": ["#8a560b", "#f2a33a", "#f5b257", "#fdf3e3"] },
+      "ground": { "role": "neutral", "displayName": "Gris de travail", "canonical": "#f4f5f7", "tonalRamp": ["#ffffff", "#f4f5f7", "#eef0f3", "#e4e6eb"] }
+    },
+    "typographyMeta": {
+      "page-title": { "displayName": "Titre de page", "purpose": "Titre de chaque écran." },
+      "display-login": { "displayName": "Slogan", "purpose": "Uniquement le slogan de la page de connexion." }
+    },
+    "shadows": [
+      { "name": "lift", "value": "0 10px 24px -14px rgb(19 35 63 / 0.35)", "purpose": "Survol d'une carte liée, avec une montée de 2 px." },
+      { "name": "action-bar", "value": "0 12px 30px -14px rgb(19 35 63 / 0.6)", "purpose": "Barre d'action collante de Nouvelle analyse." }
+    ],
+    "motion": [
+      { "name": "ease-out", "value": "cubic-bezier(0.23, 1, 0.32, 1)", "purpose": "Toutes les transitions d'état." },
+      { "name": "press", "value": "transform 140ms ease-out, scale 0.97", "purpose": "Retour à l'appui des boutons et liens." },
+      { "name": "strip-hover", "value": "flex-grow 220ms ease-out", "purpose": "Élargissement d'une teinte au survol." },
+      { "name": "drawer", "value": "transform 260ms ease-out", "purpose": "Menu latéral sur petit écran." }
+    ],
+    "breakpoints": [
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Bande de teintes",
+      "kind": "custom",
+      "refersTo": "shade-strip",
+      "description": "Teintes relevées sur une fiche ; une case s'élargit au survol.",
+      "html": "<div class=\"ds-strip\"><i style=\"background:#E8919A\"></i><i style=\"background:#D96B6F\"></i><i style=\"background:#C4566B\"></i><i style=\"background:#F2A38C\"></i><i style=\"background:#B8475E\"></i></div>",
+      "css": ".ds-strip{display:flex;width:200px;height:26px;border-radius:6px;overflow:hidden} .ds-strip i{flex:1 1 0;transition:flex-grow 220ms cubic-bezier(0.23,1,0.32,1)} .ds-strip i:hover{flex-grow:2.6}"
+    },
+    {
+      "name": "Bouton principal",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Action principale d'un écran.",
+      "html": "<button class=\"ds-btn\">Partager</button>",
+      "css": ".ds-btn{background:#13233f;color:#fff;border:0;border-radius:10px;padding:8px 16px;font:600 14px 'Hanken Grotesk Variable',sans-serif;transition:transform 140ms cubic-bezier(0.23,1,0.32,1),background-color 160ms} .ds-btn:hover{background:#1c3256} .ds-btn:active{transform:scale(0.97)}"
+    }
+  ],
+  "narrative": {
+    "northStar": "Le nuancier du marché",
+    "overview": "La couleur réelle des produits est la donnée : chaque produit porte la bande des teintes relevées sur sa fiche. Autour, une interface calme : rail bleu nuit, fond gris froid, cartes blanches.",
+    "keyCharacteristics": ["Bande de teintes sur chaque produit", "Rail bleu nuit avec le logo sur pastille blanche", "Ambre réservé au client et à l'attente", "Une seule famille de caractères"],
+    "rules": [
+      { "name": "La couleur appartient au produit", "body": "Aucune couleur saturée décorative : une couleur vive est une teinte relevée ou un état.", "section": "colors" },
+      { "name": "L'ambre désigne le client", "body": "Ambre pour votre marque, les fiches en attente et l'action principale uniquement.", "section": "colors" }
+    ],
+    "dos": ["Montrer la bande de teintes partout où un produit apparaît", "Formater les nombres en français"],
+    "donts": ["Cartes de chiffres clés en tête de page", "Seconde famille de caractères"]
+  }
+}

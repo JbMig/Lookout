@@ -49,7 +49,7 @@ export async function saveMarketProduct(opts: {
   const db = repo();
   const { sheet, row, domain, method, category } = opts;
   const complete = sheet && !missingFields(sheet).length;
-  const site = siteByDomain(domain);
+  const site = await siteByDomain(domain);
   const sourceSite = domain ?? "inconnu";
   const productUrl = sheet?.sourceUrl ?? opts.url ?? fallbackUrl(row, domain);
   const status: MarketStatus = complete ? "enriched" : sheet ? "enriching" : "discovered";

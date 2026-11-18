@@ -48,7 +48,7 @@ export const POST = handle(async (req: Request, ctx: RouteContext<"/api/admin/jo
 
   switch (input.action) {
     case "start_cu": {
-      const site = siteByDomain(p.row.source_site);
+      const site = await siteByDomain(p.row.source_site);
       const sessionId = await startNavigator({
         row,
         url: input.url ?? p.sheet?.sourceUrl ?? p.row.product_url,

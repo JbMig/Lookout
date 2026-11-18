@@ -6,7 +6,7 @@ import { Private } from "@/components/Session";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Card, ErrorText, Field, btnPrimary, btnSecondary, inputCls } from "@/components/ui";
 import type { ProductSheet, Zone } from "@/lib/types";
-import type { Site } from "@/lib/sites";
+import type { Site } from "@/lib/site-types";
 
 /** Tâche de la file de l'équipe (table enrichment_jobs + fiche market_products). */
 interface QueueItem {
@@ -106,6 +106,7 @@ function QueueCard({ item, reload }: { item: QueueItem; reload: () => void }) {
   const [instructions, setInstructions] = useState(item.site?.cuInstructions ?? "");
   const [url, setUrl] = useState(item.product?.sourceUrl ?? (item.url?.includes("/search?") ? "" : item.url ?? ""));
   const [open, setOpen] = useState<"cu" | "manual" | null>(null);
+  const [saveForSite, setSaveForSite] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -161,16 +162,24 @@ function QueueCard({ item, reload }: { item: QueueItem; reload: () => void }) {
           onSubmit={(e) => {
             e.preventDefault();
             if (url && !/^https?:\/\//.test(url)) return setError("L'URL doit commencer par http(s)://");
-            act({ action: "start_cu", url: url || null, instructions: instructions || null });
+            (async () => {
+              if (saveForSite && item.site && instructions.trim()) {
+                await api(`/api/sites/${item.site.id}`, { method: "PATCH", json: { method: "computer_use", cuInstructions: instructions } }).catch((err) => setError(err.message));
+              }
+              await act({ action: "start_cu", url: url || null, instructions: instructions || null });
+            })();
           }}
         >
           <Field label="URL de départ (facultatif)"><input className={inputCls} value={url} onChange={(e) => setUrl(e.target.value)} /></Field>
           <Field label="Parcours pour ce site" hint="Étapes concrètes en anglais : « Close the country pop-up, open the Ingredients accordion, open the shade selector… »">
             <textarea rows={4} className={inputCls} value={instructions} onChange={(e) => setInstructions(e.target.value)} />
           </Field>
-          <p className="text-xs text-ink-soft">
-            Pour que ce parcours soit appliqué automatiquement aux prochains produits du site, ajoutez-le dans src/lib/sites.ts (cuInstructions, méthode « computer_use »).
-          </p>
+          {item.site && (
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={saveForSite} onChange={(e) => setSaveForSite(e.target.checked)} />
+              Enregistrer ce parcours pour {item.site.name} : les prochains produits du site passeront en computer use automatique
+            </label>
+          )}
           <button className={btnPrimary} disabled={busy}>{busy ? "Lancement…" : "Lancer la session H Company"}</button>
         </form>
       )}
@@ -209,38 +218,123 @@ function Queue() {
   );
 }
 
-/* ---------------- Sites (définis dans le code) ---------------- */
+/* ---------------- Sites (table sites) ---------------- */
+
+const METHODS: { id: Site["method"]; label: string }[] = [
+  { id: "untested", label: "Non testé" },
+  { id: "scraping", label: "Scraping" },
+  { id: "linkup", label: "Linkup" },
+  { id: "computer_use", label: "Computer use auto" },
+  { id: "blocked", label: "Bloqué" },
+];
+
+function SiteRowEditor({ site, reload }: { site: Site; reload: () => void }) {
+  const [method, setMethod] = useState(site.method);
+  const [cu, setCu] = useState(site.cuInstructions ?? "");
+  const [name, setName] = useState(site.name);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const dirty = method !== site.method || cu !== (site.cuInstructions ?? "") || name !== site.name;
+
+  async function save() {
+    setError(null);
+    setBusy(true);
+    try {
+      await api(`/api/sites/${site.id}`, { method: "PATCH", json: { name, method, cuInstructions: cu || null } });
+      reload();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <tr className="border-t border-line align-top">
+      <td className="py-2 pr-3">
+        <input aria-label="Nom du site" className={`${inputCls} mt-0`} value={name} onChange={(e) => setName(e.target.value)} />
+        <p className="mt-1 text-xs text-ink-soft">
+          {site.domain} · {site.zone}
+          {site.source === "discovered" && <span className="ml-1 rounded bg-amber/20 px-1.5 py-0.5 text-amber-dark">découvert</span>}
+        </p>
+      </td>
+      <td className="py-2 pr-3">
+        <select aria-label="Méthode" className={`${inputCls} mt-0`} value={method} onChange={(e) => setMethod(e.target.value as Site["method"])}>
+          {METHODS.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+        </select>
+        <p className="mt-1 text-xs text-ink-soft">Dernier succès : {site.lastSuccessAt ? fmtDate(site.lastSuccessAt) : "—"}</p>
+      </td>
+      <td className="py-2 pr-3">
+        <textarea aria-label="Parcours computer use" rows={2} className={`${inputCls} mt-0 text-xs`} placeholder="Parcours H Company (en anglais)" value={cu} onChange={(e) => setCu(e.target.value)} />
+        <ErrorText>{error}</ErrorText>
+      </td>
+      <td className="py-2">
+        <button className={btnSecondary} disabled={!dirty || busy} onClick={save}>{busy ? "…" : "Enregistrer"}</button>
+      </td>
+    </tr>
+  );
+}
+
+function AddSite({ reload }: { reload: () => void }) {
+  const [form, setForm] = useState({ domain: "", name: "", zone: "EU", country: "" });
+  const [error, setError] = useState<string | null>(null);
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    if (!form.domain.trim() || !form.name.trim()) return setError("Domaine et nom sont requis.");
+    try {
+      await api("/api/sites", { method: "POST", json: { ...form, country: form.country || null } });
+      setForm({ domain: "", name: "", zone: "EU", country: "" });
+      reload();
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm({ ...form, [k]: e.target.value });
+  return (
+    <form onSubmit={submit} className="flex flex-wrap items-end gap-3" noValidate>
+      <Field label="Domaine"><input className={inputCls} placeholder="sephora.it" value={form.domain} onChange={set("domain")} /></Field>
+      <Field label="Nom"><input className={inputCls} placeholder="Sephora Italie" value={form.name} onChange={set("name")} /></Field>
+      <Field label="Zone">
+        <select className={inputCls} value={form.zone} onChange={set("zone")}><option value="EU">Europe</option><option value="US">États-Unis</option></select>
+      </Field>
+      <Field label="Pays"><input className={inputCls} value={form.country} onChange={set("country")} /></Field>
+      <button className={btnPrimary}>Ajouter le site</button>
+      <div className="w-full"><ErrorText>{error}</ErrorText></div>
+    </form>
+  );
+}
 
 function Sites() {
   const [sites, setSites] = useState<Site[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const load = useCallback(() => api<{ sites: Site[] }>("/api/sites").then((r) => setSites(r.sites)).catch((e) => setError(e.message)), []);
   useEffect(() => {
-    api<{ sites: Site[] }>("/api/sites").then((r) => setSites(r.sites)).catch((e) => setError(e.message));
-  }, []);
+    load();
+  }, [load]);
   if (!sites) return <p className="text-ink-soft">{error ?? "Chargement…"}</p>;
+  const discovered = sites.filter((s) => s.source === "discovered").length;
   return (
-    <Card>
-      <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm">
-          <thead className="text-ink-soft">
-            <tr><th className="py-2 font-medium">Site</th><th className="py-2 font-medium">Zone</th><th className="py-2 font-medium">Méthode</th><th className="py-2 font-medium">Parcours computer use</th></tr>
-          </thead>
-          <tbody>
-            {sites.map((s) => (
-              <tr key={s.domain} className="border-t border-line align-top">
-                <td className="py-2"><span className="font-medium">{s.name}</span> <span className="text-ink-soft">{s.domain}</span></td>
-                <td className="py-2">{s.zone}</td>
-                <td className="py-2"><StatusBadge status={s.method} /></td>
-                <td className="py-2 text-xs text-ink-soft">{s.cuInstructions ?? "—"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <p className="mt-3 text-xs text-ink-soft">
-        Le schéma Supabase n&apos;a pas de table de sites : ils sont définis dans src/lib/sites.ts. Modifiez ce fichier (méthode, parcours) puis redéployez.
-      </p>
-    </Card>
+    <div className="space-y-4">
+      <Card>
+        <p className="mb-3 text-sm text-ink-soft">
+          {sites.length} sites, dont {discovered} découverts pendant des analyses. Un site passe en « Computer use auto » quand un parcours est enregistré :
+          ses produits sont alors traités par H Company sans passer par la file.
+        </p>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="text-ink-soft">
+              <tr><th className="py-2 font-medium">Site</th><th className="py-2 font-medium">Méthode</th><th className="py-2 font-medium">Parcours computer use</th><th /></tr>
+            </thead>
+            <tbody>{sites.map((s) => <SiteRowEditor key={`${s.id}-${s.method}-${s.cuInstructions ?? ""}-${s.name}`} site={s} reload={load} />)}</tbody>
+          </table>
+        </div>
+      </Card>
+      <Card>
+        <h2 className="mb-3 font-semibold">Ajouter un site</h2>
+        <AddSite reload={load} />
+      </Card>
+    </div>
   );
 }
 

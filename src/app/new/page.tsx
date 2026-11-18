@@ -7,7 +7,7 @@ import { FileImport, type ImportedTable } from "@/components/FileImport";
 import { Card, ErrorText, Field, inputCls } from "@/components/ui";
 import { missingRequired, toCircanaRows } from "@/lib/tabular";
 import type { Zone } from "@/lib/types";
-import type { Site } from "@/lib/sites";
+import type { Site } from "@/lib/site-types";
 
 const MAX_PRODUCTS = 300;
 

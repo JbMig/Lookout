@@ -39,3 +39,48 @@ describe("import Circana", () => {
     expect(missingRequired(m, CIRCANA_FIELDS)).toEqual(["Produit"]);
   });
 });
+
+describe("classeur Circana mis en forme", () => {
+  const sheet = (name: string, title: string, unit: string, rows: (string | number)[][]) => ({
+    name,
+    rows: [
+      [title], ["Données fictives."], [],
+      ["Rang", "Produit", "Marque", "Teinte", `CA FY 2024 (${unit})`, `CA FY 2025 (${unit})`, "Évol."],
+      ...rows.map((r) => r.map(String)),
+    ],
+  });
+  const summary = { name: "Liquid Blush", rows: [["", "Liquid Blush | FY 2025 vs FY 2024"], [], ["", "Rang", "Marque", "CA FY 2024", "CA FY 2025"], ["", "1", "Dior", "947", "3489"]] };
+
+  it("remet à plat les feuilles SKU : zone, segment, périodes et unités", async () => {
+    const { normalizeCircanaSheets, suggestMapping, toCircanaRows, CIRCANA_FIELDS } = await import("@/lib/tabular");
+    const t = normalizeCircanaSheets([
+      summary,
+      sheet("Top50 SKU US - Liquid", "Top 50 SKU — Liquid Blush — ÉTATS-UNIS | FY 2025 vs FY 2024", "K$", [
+        [1, "Matte Beauty Blush Wand", "Charlotte Tilbury", "Pillow Pink", 16760, 16071, ""],
+        [4, "Matte Beauty Blush Wand", "Charlotte Tilbury", "Hollywood Flush", 6650, 7762, ""],
+        [2, "Dior Backstage Rosy Glow Liquid Blush", "Dior", "Ballet", 0, 10093, ""],
+      ]),
+      sheet("Top50 SKU FR - Liquid", "Top 50 SKU — Liquid Blush — FRANCE | FY 2025 vs FY 2024", "K€", [
+        [1, "Dior Backstage Rosy Glow Liquid Blush", "Dior", "Bronze", 0, 688, ""],
+      ]),
+    ])!;
+    expect(t).not.toBeNull();
+    const m = suggestMapping(t.headers, CIRCANA_FIELDS);
+    expect(m).toMatchObject({ brand: "Marque", product: "Produit", zone: "Zone", period: "Période", salesValue: "Ventes", currency: "Devise", shade: "Teinte", segment: "Segment" });
+    const rows = toCircanaRows(t.rows, m);
+    expect(rows).toHaveLength(3);
+    const ct = rows.find((r) => r.brand === "Charlotte Tilbury")!;
+    expect(ct).toMatchObject({ zone: "US", period: "FY 2025", salesValue: 23_833_000, currency: "USD", segment: "Liquid Blush", shades: ["Pillow Pink", "Hollywood Flush"] });
+    expect(ct.history).toEqual([
+      { period: "FY 2024", salesValue: 23_410_000, units: undefined },
+      { period: "FY 2025", salesValue: 23_833_000, units: undefined },
+    ]);
+    const fr = rows.find((r) => r.zone === "EU")!;
+    expect(fr).toMatchObject({ brand: "Dior", salesValue: 688_000, currency: "EUR" });
+  });
+
+  it("laisse les fichiers déjà à plat au lecteur habituel", async () => {
+    const { normalizeCircanaSheets } = await import("@/lib/tabular");
+    expect(normalizeCircanaSheets([{ name: "data", rows: [["Brand", "Product", "Market", "Period", "Dollar Sales"], ["NARS", "Blush", "US", "2026-Q3", "100"]] }])).toBeNull();
+  });
+});

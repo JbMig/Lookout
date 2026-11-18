@@ -27,7 +27,28 @@ export function growthOf(i: ItemView): number | null {
   return Math.round(((last - prev) / prev) * 100);
 }
 
-const fmtSales = (v?: number) => (v === undefined ? "—" : `${(v / 1_000_000).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} M$`);
+/** Symbole de la devise des ventes Circana (dollar par défaut). */
+export const salesSymbol = (currency?: string) => (currency === "EUR" ? "€" : currency === "GBP" ? "£" : "$");
+
+const fmtSales = (v?: number, currency?: string) => {
+  if (v === undefined) return "—";
+  const sym = salesSymbol(currency);
+  return v >= 100_000
+    ? `${(v / 1_000_000).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} M${sym}`
+    : `${Math.round(v / 1_000).toLocaleString("fr-FR")} k${sym}`;
+};
+
+/** Produit absent de la période précédente (ventes à zéro) : nouveauté. */
+export function isNew(i: ItemView): boolean {
+  const h = i.circana.history;
+  if (!h || h.length < 2) return false;
+  return h[h.length - 2].salesValue === 0 && (h[h.length - 1].salesValue ?? 0) > 0;
+}
+
+function Growth({ item }: { item: ItemView }) {
+  if (isNew(item)) return <span className="font-semibold text-ok">Nouveauté</span>;
+  return <Delta value={growthOf(item)} />;
+}
 
 function useScrollSpy(ids: string[]) {
   const [active, setActive] = useState(ids[0]);
@@ -81,7 +102,7 @@ function RangeTable({ items, isClient }: { items: ItemView[]; isClient: (b: stri
                 </div>
                 <span className="shrink-0 text-sm font-semibold">{i.product?.priceEur != null ? fmtEur(i.product.priceEur) : "—"}</span>
               </div>
-              <div className="mt-1 text-[13px] text-ink-soft">{fmtSales(i.circana.salesValue)} · <Delta value={growthOf(i)} /></div>
+              <div className="mt-1 text-[13px] text-ink-soft">{fmtSales(i.circana.salesValue, i.circana.currency)} · <Growth item={i} /></div>
               <div className="mt-2"><ShadeStrip shades={i.product?.shades ?? []} width="100%" height={18} pending={i.status === "done" ? "aucune teinte" : "teintes à venir"} /></div>
             </li>
           );
@@ -117,8 +138,8 @@ function RangeTable({ items, isClient }: { items: ItemView[]; isClient: (b: stri
                     <div className="text-[13px] text-ink-soft">{i.product?.name || i.circana.product}</div>
                   </td>
                   <td className="px-3">{i.circana.zone}</td>
-                  <td className="px-3 text-right">{fmtSales(i.circana.salesValue)}</td>
-                  <td className="px-3 text-right"><Delta value={growthOf(i)} /></td>
+                  <td className="whitespace-nowrap px-3 text-right">{fmtSales(i.circana.salesValue, i.circana.currency)}</td>
+                  <td className="whitespace-nowrap px-3 text-right"><Growth item={i} /></td>
                   <td className="px-3 text-right">{i.product?.priceEur != null ? fmtEur(i.product.priceEur) : "—"}</td>
                   <td className="py-2.5 pl-3 pr-5">
                     <div className="flex items-center gap-2">
@@ -291,7 +312,10 @@ export function ReportView({ bundle }: { bundle: Bundle }) {
 
       <section id="marche" className="grid scroll-mt-24 gap-6 lg:grid-cols-2">
         <Card><CardHead title="Prix constaté par marque" sub="En euros, après conversion" /><PriceByBrandChart items={items} /></Card>
-        <Card><CardHead title="Ventes Circana par marque" sub="En millions de dollars" /><SalesByBrandChart items={items} /></Card>
+        <Card><CardHead
+            title="Ventes Circana par marque"
+            sub={new Set(items.map((i) => i.circana.currency ?? "USD")).size > 1 ? "En millions, dans la devise du fichier (États-Unis : $, Europe : €)" : `En millions de ${salesSymbol(items[0]?.circana.currency) === "€" ? "euros" : "dollars"}`}
+          /><SalesByBrandChart items={items} /></Card>
         {s && <Card className="lg:col-span-2"><CardHead title="Formats et packagings" sub="Nombre de produits par format relevé" /><FormatsChart stats={s} /></Card>}
       </section>
 

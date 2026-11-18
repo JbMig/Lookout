@@ -29,7 +29,7 @@ export const GET = handle(async () => {
 });
 
 const Table = z.object({
-  rows: z.array(z.record(z.string(), z.string())).max(2000),
+  rows: z.array(z.record(z.string(), z.string())).max(5000),
   mapping: z.record(z.string(), z.string().nullable()),
   fileName: z.string().max(200).default("import"),
   storagePath: z.string().max(400).nullable().optional(),

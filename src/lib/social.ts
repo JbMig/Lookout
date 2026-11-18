@@ -71,7 +71,7 @@ export interface ScoreMarque {
 }
 
 let client: SupabaseClient | null = null;
-function db() {
+export function db() {
   if (isDemo.db) throw new HttpError(503, "Social listening indisponible en mode démo (Supabase non configuré)");
   client ??= createClient(config.supabase.url, config.supabase.serviceKey, { auth: { persistSession: false } });
   return client;

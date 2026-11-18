@@ -219,6 +219,14 @@ async function catalogFor(report: ReportDbRow) {
   return (await repo().select<CatalogProductRow>("catalog_products", { in: ["id", ids] })).map(toClientProduct);
 }
 
+/**
+ * Score d'une opportunité entre 0 et 1 : la colonne growth_opportunities.score est un numeric(4,3)
+ * (au plus 9,999), la valeur brute est gardée dans estimated_impact.
+ */
+export function opportunityScore(magnitude: number, scale: number) {
+  return Math.round(Math.min(1, Math.abs(magnitude) / scale) * 1000) / 1000;
+}
+
 async function saveOpportunities(analysisId: string, catalog: CatalogInsights) {
   const db = repo();
   await db.removeWhere("growth_opportunities", { analysis_id: analysisId });
@@ -227,7 +235,8 @@ async function saveOpportunities(analysisId: string, catalog: CatalogInsights) {
     const name = `${p.client.brand} ${p.client.name}`;
     if (p.priceGapPct !== null && Math.abs(p.priceGapPct) > 10) {
       rows.push({
-        analysis_id: analysisId, kind: "price_gap", score: Math.abs(p.priceGapPct),
+        analysis_id: analysisId, kind: "price_gap", score: opportunityScore(p.priceGapPct, 50),
+        estimated_impact: { ecart_prix_pct: p.priceGapPct },
         title: `${name} : ${p.priceGapPct > 0 ? "+" : ""}${p.priceGapPct} % vs prix moyen du marché`,
         description: p.priceGapPct > 0 ? "Positionné au-dessus du marché : vérifier la valeur perçue." : "Positionné sous le marché : marge de hausse possible.",
         refs: { product: name, matched: p.matchName },
@@ -235,8 +244,9 @@ async function saveOpportunities(analysisId: string, catalog: CatalogInsights) {
     }
     if (p.shadesGap !== null && p.shadesGap <= -1) {
       rows.push({
-        analysis_id: analysisId, kind: "shade_gap", score: Math.abs(p.shadesGap),
-        title: `${name} : ${Math.abs(p.shadesGap)} teintes de moins que les best-sellers`,
+        analysis_id: analysisId, kind: "shade_gap", score: opportunityScore(p.shadesGap, 10),
+        estimated_impact: { ecart_teintes: p.shadesGap },
+        title: `${name} : ${Math.abs(p.shadesGap).toLocaleString("fr-FR", { maximumFractionDigits: 1 })} teintes de moins que les best-sellers`,
         description: "Élargir la gamme de teintes pour s'aligner sur les meilleures ventes.",
         refs: { product: name },
       });
@@ -273,7 +283,8 @@ export async function finalize(report: ReportDbRow) {
     if (catalog) {
       const auditId = await upsert("catalog_audit", { catalog });
       ids.push(auditId);
-      await saveOpportunities(auditId, catalog);
+      // Les opportunités sont un plus : leur échec ne doit pas faire échouer le rapport.
+      await saveOpportunities(auditId, catalog).catch((e) => console.error("growth_opportunities", (e as Error).message));
     }
 
     const { fromTable: _ignored, ...trendsToStore } = trends as typeof trends & { fromTable?: boolean };
@@ -286,8 +297,18 @@ export async function finalize(report: ReportDbRow) {
 
 /* ---------------- Étape ---------------- */
 
-export async function step(report: ReportDbRow) {
-  if (report.status === "failed") return report;
+export async function step(report: ReportDbRow, opts: { retry?: boolean } = {}) {
+  if (report.status === "failed") {
+    // Nouvel essai demandé : on recalcule l'analyse si la collecte est terminée, sinon on la reprend.
+    if (!opts.retry) return report;
+    const items = report.data.items ?? [];
+    if (items.some((i) => ["pending", "collecting"].includes(i.status))) {
+      await saveData(report, { phase: "collecting" }, { status: "generating", error_message: null });
+      return report;
+    }
+    await finalize(report);
+    return report;
+  }
   if (report.status === "generating" && report.data.phase === "analyzing") return report;
 
   const items = report.data.items ?? [];

@@ -31,7 +31,11 @@ function NewAnalysis() {
   const [useSaved, setUseSaved] = useState(true);
 
   useEffect(() => {
-    api<{ sites: Site[] }>("/api/sites").then((r) => setSites(r.sites.filter((s) => s.method !== "blocked")));
+    api<{ sites: Site[] }>("/api/sites").then((r) => {
+      const usable = r.sites.filter((s) => s.method !== "blocked");
+      setSites(usable);
+      setSiteIds(usable.map((s) => s.domain)); // tous les sites cochés par défaut
+    });
     api<{ products: unknown[] }>("/api/catalog").then((r) => setSavedCatalog(r.products.length)).catch(() => null);
   }, []);
 
@@ -46,6 +50,8 @@ function NewAnalysis() {
   }, [rows, zones, excluded, focus, focusOnly]);
   const max = MAX_PRODUCTS;
   const zoneSites = sites.filter((s) => zones.includes(s.zone));
+  const checkedSites = zoneSites.filter((s) => siteIds.includes(s.domain));
+  const allChecked = zoneSites.length > 0 && checkedSites.length === zoneSites.length;
 
   const toggle = <T,>(list: T[], v: T) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
 
@@ -61,6 +67,8 @@ function NewAnalysis() {
       if (m2.length) return setError(`Associez les colonnes obligatoires du catalogue : ${m2.join(", ")}.`);
     }
     if (!zones.length) return setError("Choisissez au moins une zone.");
+    const zoneWithoutSite = zones.find((z) => zoneSites.some((s) => s.zone === z) && !checkedSites.some((s) => s.zone === z));
+    if (zoneWithoutSite) return setError(`Cochez au moins un site à analyser pour la zone ${zoneWithoutSite === "US" ? "États-Unis" : "Europe"}.`);
     if (!kept.length) return setError("Aucune ligne ne correspond à vos critères.");
     setBusy(true);
     try {
@@ -69,7 +77,7 @@ function NewAnalysis() {
         json: {
           name,
           category,
-          params: { zones, siteIds: siteIds.filter((d) => zoneSites.some((s) => s.domain === d)), excludedBrands: excluded, focus, focusOnly },
+          params: { zones, siteIds: checkedSites.map((s) => s.domain), excludedBrands: excluded, focus, focusOnly },
           circana: { rows: circana.rows, mapping: circana.mapping, fileName: circana.fileName, storagePath: circana.storagePath ?? null },
           ...(catalog ? { catalog: { rows: catalog.rows, mapping: catalog.mapping, fileName: catalog.fileName } } : {}),
           useSavedCatalog: !catalog && useSaved && savedCatalog > 0,
@@ -134,19 +142,39 @@ function NewAnalysis() {
           <div className="space-y-5">
             <fieldset>
               <legend className="text-sm font-medium">Zones</legend>
-              <div className="mt-2 flex gap-4 text-sm">
+              <div className="mt-2 flex flex-wrap gap-4 text-sm">
                 {(["US", "EU"] as Zone[]).map((z) => (
                   <label key={z} className="flex items-center gap-2">
                     <input type="checkbox" checked={zones.includes(z)} onChange={() => setZones(toggle(zones, z))} />
                     {z === "US" ? "États-Unis" : "Europe"}
                   </label>
                 ))}
+                {["Chine", "Corée"].map((z) => (
+                  <label key={z} className="flex cursor-not-allowed items-center gap-2 text-ink-soft opacity-60" title="Bientôt disponible">
+                    <input type="checkbox" disabled checked={false} readOnly />
+                    {z} <span className="text-xs">(bientôt)</span>
+                  </label>
+                ))}
               </div>
             </fieldset>
 
             <fieldset>
-              <legend className="text-sm font-medium">Sites à fouiller</legend>
-              <p className="text-xs text-ink-soft">Aucun coché = tous les sites actifs des zones choisies.</p>
+              <legend className="text-sm font-medium">Sites à analyser</legend>
+              <p className="text-xs text-ink-soft">Seuls les sites cochés sont analysés ({checkedSites.length} sur {zoneSites.length}).</p>
+              <label className="mt-2 flex items-center gap-2 text-sm font-medium">
+                <input
+                  type="checkbox"
+                  checked={allChecked}
+                  ref={(el) => {
+                    if (el) el.indeterminate = checkedSites.length > 0 && !allChecked;
+                  }}
+                  onChange={() => {
+                    const zoneDomains = zoneSites.map((s) => s.domain);
+                    setSiteIds(allChecked ? siteIds.filter((d) => !zoneDomains.includes(d)) : [...new Set([...siteIds, ...zoneDomains])]);
+                  }}
+                />
+                Tout cocher
+              </label>
               <div className="mt-2 grid gap-1.5 text-sm sm:grid-cols-2">
                 {zoneSites.map((s) => (
                   <label key={s.domain} className="flex items-center gap-2">

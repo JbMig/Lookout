@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api, fmtDate } from "@/lib/client";
 import { Private } from "@/components/Session";
 import { StatusBadge } from "@/components/StatusBadge";
-import { Card, ErrorText, Field, btnPrimary, btnSecondary, inputCls } from "@/components/ui";
+import { Card, ErrorText, Field, btnPrimary, btnSecondary, inputCls, PageHeader, Empty, Skeleton, ShadeStrip } from "@/components/ui";
 import type { ProductSheet, Zone } from "@/lib/types";
 import type { Site } from "@/lib/site-types";
 
@@ -86,7 +86,7 @@ function ManualForm({ item, onDone }: { item: QueueItem; onDone: () => void }) {
   }
 
   return (
-    <form onSubmit={save} className="mt-4 grid gap-3 rounded-lg bg-cream p-4 sm:grid-cols-2">
+    <form onSubmit={save} className="mt-4 grid gap-3 rounded-[12px] bg-ground p-4 sm:grid-cols-2">
       <Field label="Nom"><input className={inputCls} value={f.name} onChange={set("name")} /></Field>
       <Field label="Marque"><input className={inputCls} value={f.brand} onChange={set("brand")} /></Field>
       <Field label="Prix"><input className={inputCls} inputMode="decimal" value={f.price} onChange={set("price")} /></Field>
@@ -125,12 +125,12 @@ function QueueCard({ item, reload }: { item: QueueItem; reload: () => void }) {
   }
 
   return (
-    <li className="rounded-xl border border-line bg-paper p-4">
+    <li className="rounded-[14px] border border-line bg-paper p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="font-medium">{item.brand} · {item.name} {item.zone && <span className="text-xs text-ink-soft">({item.zone})</span>}</p>
           <p className="text-sm text-ink-soft">
-            site : {item.site?.name ?? item.siteDomain ?? "inconnu"} · {item.attempts} tentative(s) · depuis le {fmtDate(item.created_at)}
+            site : {item.site?.name ?? item.siteDomain ?? "inconnu"} · {item.attempts} tentative{item.attempts > 1 ? "s" : ""} · depuis le {fmtDate(item.created_at)}
           </p>
           {!!item.reports.length && (
             <p className="text-sm text-ink-soft">
@@ -142,7 +142,10 @@ function QueueCard({ item, reload }: { item: QueueItem; reload: () => void }) {
           )}
           {item.error && <p className="mt-1 text-sm text-amber-dark">{item.error}</p>}
         </div>
-        <StatusBadge status={item.status === "running" ? "navigating" : "awaiting_team"} />
+        <div className="flex flex-col items-start gap-2 sm:items-end">
+          <StatusBadge status={item.status === "running" ? "navigating" : "awaiting_team"} />
+          <ShadeStrip shades={item.product?.shades ?? []} width={180} height={16} pending="teintes à relever" />
+        </div>
       </div>
 
       <div className="mt-3 flex flex-wrap gap-2">
@@ -158,7 +161,7 @@ function QueueCard({ item, reload }: { item: QueueItem; reload: () => void }) {
 
       {open === "cu" && (
         <form
-          className="mt-4 space-y-3 rounded-lg bg-cream p-4"
+          className="mt-4 space-y-3 rounded-[12px] bg-ground p-4"
           onSubmit={(e) => {
             e.preventDefault();
             if (url && !/^https?:\/\//.test(url)) return setError("L'URL doit commencer par http(s)://");
@@ -208,8 +211,8 @@ function Queue() {
   }, [items, load]);
 
   if (error) return <p className="text-bad">{error}</p>;
-  if (!items) return <p className="text-ink-soft">Chargement…</p>;
-  if (!items.length) return <p className="rounded-xl border border-dashed border-line bg-paper p-8 text-center text-ink-soft">Aucun produit en attente : tous les sites passent en automatique.</p>;
+  if (!items) return <div className="space-y-3">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-24" />)}</div>;
+  if (!items.length) return <Empty title="La file est vide">Toutes les fiches ont été collectées automatiquement.</Empty>;
   return (
     <div className="space-y-3">
       <p className="text-sm text-ink-soft">{items.length} fiche(s) que le scraping n&apos;a pas pu compléter. Chaque fiche complétée met à jour tous les rapports qui la contiennent.</p>
@@ -345,7 +348,7 @@ function Users() {
   useEffect(() => {
     api<{ users: NonNullable<typeof users> }>("/api/admin/users").then((r) => setUsers(r.users));
   }, []);
-  if (!users) return <p className="text-ink-soft">Chargement…</p>;
+  if (!users) return <Skeleton className="h-48" />;
   return (
     <Card>
       <table className="w-full text-left text-sm">
@@ -372,7 +375,7 @@ function Stats() {
   useEffect(() => {
     api<NonNullable<typeof data>>("/api/admin/stats").then(setData);
   }, []);
-  if (!data) return <p className="text-ink-soft">Chargement…</p>;
+  if (!data) return <Skeleton className="h-48" />;
   const block = (title: string, rec: Record<string, number>, label: (k: string) => string = (k) => k) => (
     <Card>
       <h2 className="mb-2 font-semibold">{title}</h2>
@@ -401,11 +404,11 @@ function Admin() {
   const [tab, setTab] = useState<(typeof TABS)[number]["id"]>("queue");
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Administration Lookout</h1>
-      <div role="tablist" className="flex flex-wrap gap-1 border-b border-line">
+      <PageHeader title="Administration" meta={<span>File de l&apos;équipe, sites surveillés, utilisateurs et collecte.</span>} />
+      <div role="tablist" className="flex flex-wrap gap-6 border-b border-line">
         {TABS.map((t) => (
           <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)}
-            className={`-mb-px border-b-2 px-4 py-2 text-sm ${tab === t.id ? "border-ink font-medium" : "border-transparent text-ink-soft"}`}>
+            className={`press -mb-px border-b-2 py-2.5 text-sm font-semibold ${tab === t.id ? "border-night text-ink" : "border-transparent text-ink-soft hover:text-ink"}`}>
             {t.label}
           </button>
         ))}

@@ -49,14 +49,20 @@ function toSite(r: SiteRow): Site {
   };
 }
 
+let seeding: Promise<unknown> | null = null;
+
 export async function listSites(): Promise<Site[]> {
   const db = repo();
   let rows = await db.select<SiteRow>("sites", { order: ["created_at", "asc"], limit: 1000 });
   if (!rows.length) {
-    // Mode démo, ou table vide : on part des sites de départ.
-    rows = await db.insert<SiteRow>("sites", DEFAULT_SITES);
+    // Mode démo, ou table vide : on part des sites de départ (une seule fois, même sous appels parallèles).
+    seeding ??= db.insert<SiteRow>("sites", DEFAULT_SITES).catch(() => null);
+    await seeding;
+    rows = await db.select<SiteRow>("sites", { order: ["created_at", "asc"], limit: 1000 });
   }
-  return rows.map(toSite);
+  // Un domaine n'apparaît qu'une fois, même si des doublons existent déjà.
+  const seen = new Set<string>();
+  return rows.filter((r) => (seen.has(r.domain) ? false : (seen.add(r.domain), true))).map(toSite);
 }
 
 function sameSite(domain: string, siteDomain: string) {

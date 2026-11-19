@@ -14,7 +14,7 @@ export const GET = handle(async () => {
   await requireStaff();
   const db = repo();
   const products = await db.select<MarketProductRow>("market_products", { limit: 10000 });
-  const jobs = await db.select<EnrichmentJobRow>("enrichment_jobs", { limit: 10000 });
+  const jobs = await db.select<EnrichmentJobRow>("enrichment_jobs", { limit: 10000 }).catch(() => [] as EnrichmentJobRow[]);
   return {
     products: products.length,
     byMethod: count(products, (p) => p.raw_data?.method ?? "inconnue"),

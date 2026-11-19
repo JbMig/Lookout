@@ -4,6 +4,7 @@ import { config, isDemo } from "./config";
 import { repo } from "./repo";
 import { getAgentConfig, getSetting, setSetting, type AgentConfig } from "./settings";
 import { loadUniverse } from "./universe";
+import { sitesFor } from "./sites";
 import { computeGrowth } from "./growth";
 import { newShareToken } from "./reports";
 import { agentInfo, type AgentId, type AgentRun } from "./agent-runs";
@@ -12,7 +13,7 @@ import { NEEDS_SETTINGS, missingSettings } from "./settings-check";
 
 /**
  * Déclenchement des agents depuis les boutons du site.
- *   Agent 1 : Edge Function Supabase « import-circana » (lit le bucket circana-uploads).
+ *   Agent 1 : agent Holo « agent-import-circana » (sans HAI_API_KEY, appel direct de l'Edge Function import-circana).
  *   Agents 3 et 4 : agents Holo (H Company) « agent-analyse-concurrentielle » et « bench-dashboard-creation »
  *   dès que HAI_API_KEY est défini ; sans clé, moteur intégré (analyses / growth_opportunities / reports).
  *   Agents 0, 2, 2.5 : transmis à AGENT_WEBHOOK_URL si défini, sinon à leur agent Holo ;
@@ -23,6 +24,7 @@ import { NEEDS_SETTINGS, missingSettings } from "./settings-check";
  * Agent Holo de chaque étape (nom de l'agent créé chez H Company). Modifiable par variable d'environnement.
  */
 const HOLO: Partial<Record<AgentId, string>> = {
+  "1": process.env.HAI_AGENT_1 || "agent-import-circana",
   "0": process.env.HAI_AGENT_0 || "bench-catalog-audit",
   "2": process.env.HAI_AGENT_2 || "agent-enrichissement-csv",
   "2.5": process.env.HAI_AGENT_2_5 || "agent-recherche-generique",
@@ -55,6 +57,27 @@ const SESSION: Partial<Record<AgentId, (cfg: AgentConfig) => string>> = {
   "2.5": (cfg) => `Recherche : « ${[cfg.category, ...cfg.formats].join(" ")} ». Zone : ${cfg.zone === "US" ? "US" : "EU"}.`,
   "3": () => "Tu es l'Agent 3 : analyse concurrentielle. Lis catalog_products, market_products, market_shades, market_ingredients et circana_sales, compare prix, formats, teintes et ingrédients. Écris d'abord une ligne dans analyses, puis une ligne par opportunité dans growth_opportunities avec analysis_id renseigné. Termine par les 3 opportunités les plus intéressantes avec les chiffres.",
 };
+
+/** Agent 2.5 : sites de la page « Sites suivis » pour la zone, sans l'empêcher d'en explorer d'autres. */
+async function suivis(cfg: AgentConfig): Promise<string> {
+  const domains = (await sitesFor(cfg.zone === "US" ? "US" : "EU", [])).filter((x) => x.type !== "marque").map((x) => x.domain);
+  return domains.length
+    ? `Sites suivis à couvrir en priorité (paramètre sites) : ${domains.join(",")}. Tu peux aussi chercher sur d'autres sites de beauté pertinents de la zone si tu en trouves.`
+    : "Aucun site suivi pour cette zone : choisis toi-même les sites de beauté pertinents.";
+}
+
+/** Agent 1 Holo : il inventorie le bucket circana-uploads, importe via import-circana et vérifie la cohérence. */
+async function importHolo(cfg: AgentConfig, p: Record<string, unknown>) {
+  const file = typeof p.file === "string" && p.file ? p.file : null;
+  const category = typeof p.category === "string" && p.category ? p.category : cfg.category;
+  const s = await holoSession(HOLO["1"]!, [
+    file ? `Importe uniquement le fichier « ${file} » du bucket circana-uploads.` : "Importe tous les nouveaux fichiers du bucket circana-uploads.",
+    `Catégorie : ${category}.`,
+    p.force ? "Remplace l'import existant (ajoute &force=1)." : "",
+    "Fais ensuite la vérification obligatoire. Ne demande rien à l'utilisateur.",
+  ].filter(Boolean).join("\n"));
+  return { status: "started" as const, via: "h-company" as const, message: `Agent Holo ${HOLO["1"]} lancé (session ${s.id}). Les ventes apparaîtront dès la fin de l'import.`, link: s.agent_view_url ?? "/import" };
+}
 
 async function holoSession(name: string, message: string) {
   const res = await fetch(`${config.hcompany.baseUrl}/sessions`, {
@@ -127,7 +150,9 @@ async function external(agent: AgentId, cfg: AgentConfig, params: Record<string,
   }
   if (!isDemo.hcompany) {
     const name = HOLO[agent];
-    const s = name ? await holoSession(name, holoParams(cfg, SESSION[agent] ? [SESSION[agent]!(cfg)] : [])) : await holoSession(config.hcompany.agent, task);
+    const extra = SESSION[agent] ? [SESSION[agent]!(cfg)] : [];
+    if (agent === "2.5") extra.push(await suivis(cfg));
+    const s = name ? await holoSession(name, holoParams(cfg, extra)) : await holoSession(config.hcompany.agent, task);
     return { status: "started", via: "h-company", message: `Agent Holo ${name || config.hcompany.agent} lancé (session ${s.id}).`, link: s.agent_view_url ?? null };
   }
   return {
@@ -248,7 +273,7 @@ export async function runAgent(agent: AgentId, params: Record<string, unknown>, 
   };
   try {
     const out =
-      agent === "1" ? await importCircana(params)
+      agent === "1" ? (isDemo.hcompany ? await importCircana(params) : await importHolo(cfg, params))
       : agent === "3" ? (isDemo.hcompany ? await analyse(cfg) : await analyseHolo(cfg))
       : agent === "4" ? (isDemo.hcompany ? await dashboard(cfg, user?.userId ?? null, params) : await dashboardHolo(cfg, user?.userId ?? null))
       : await external(agent, cfg, params);

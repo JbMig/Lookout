@@ -67,8 +67,8 @@ Chaque page porte un bouton qui lance son agent ; le suivi s'affiche sur la page
 | Agent | Produit | Exécution actuelle |
 |---|---|---|
 | 0 · Audit du catalogue | `catalog_products` | Agent Holo `bench-catalog-audit` |
-| 1 · Import Circana | `circana_imports`, `circana_sales` | Edge function Supabase `import-circana` |
-| 2 · Enrichissement du marché | `market_products`, `market_shades`, `market_ingredients` | Agent Holo `agent-enrichissement-csv` (+ `shade-color-expert`, `product-image-finder`) |
+| 1 · Import Circana | `circana_imports`, `circana_sales` | Agent Holo `agent-import-circana` (Edge Function `import-circana` sans `HAI_API_KEY`) |
+| 2 · Enrichissement du marché | `market_products`, `market_shades`, `market_ingredients` | Agent Holo `agent-enrichissement-csv` (+ sous-agent `shade-color-expert`) |
 | 2.5 · Enrichissement sur sites web | `market_products` (complément) | Agent Holo `agent-recherche-generique` |
 | 3 · Analyse de croissance | `analyses`, `growth_opportunities` | Agent Holo `agent-analyse-concurrentielle` ; sans `HAI_API_KEY`, moteur intégré |
 | 4 · Dashboard | `reports` | Agent Holo `bench-dashboard-creation` (rapport JSON affiché par le site) ; sans `HAI_API_KEY`, Market Radar intégré |

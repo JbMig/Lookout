@@ -5,18 +5,17 @@ export type AgentId = "0" | "1" | "2" | "2.5" | "3" | "4";
 export interface AgentInfo {
   id: AgentId;
   name: string;
-  owner: string;
   produces: string;
   page: string;
 }
 
 export const AGENTS: AgentInfo[] = [
-  { id: "0", name: "Audit du catalogue", owner: "Lenja", produces: "catalog_products", page: "/catalog" },
-  { id: "1", name: "Import Circana", owner: "Aubain", produces: "circana_imports, circana_sales", page: "/import" },
-  { id: "2", name: "Enrichissement du marché", owner: "Samantha", produces: "market_products, market_shades, market_ingredients", page: "/market" },
-  { id: "2.5", name: "Enrichissement sur sites web", owner: "Aubain", produces: "market_products (complément)", page: "/market" },
-  { id: "3", name: "Analyse de croissance", owner: "Elena", produces: "analyses, growth_opportunities", page: "/analysis" },
-  { id: "4", name: "Dashboard", owner: "Lenja", produces: "reports", page: "/dashboard" },
+  { id: "0", name: "Audit du catalogue", produces: "catalog_products", page: "/catalog" },
+  { id: "1", name: "Import Circana", produces: "circana_imports, circana_sales", page: "/import" },
+  { id: "2", name: "Enrichissement du marché", produces: "market_products, market_shades, market_ingredients", page: "/market" },
+  { id: "2.5", name: "Enrichissement sur sites web", produces: "market_products (complément)", page: "/market" },
+  { id: "3", name: "Analyse de croissance", produces: "analyses, growth_opportunities", page: "/analysis" },
+  { id: "4", name: "Dashboard", produces: "reports", page: "/dashboard" },
 ];
 
 export const agentInfo = (id: AgentId) => AGENTS.find((a) => a.id === id)!;

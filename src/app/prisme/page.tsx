@@ -74,7 +74,7 @@ function Prisme() {
         <button role="tab" aria-selected={onglet === "reseaux"} onClick={ouvrirReseaux} className={`press shrink-0 whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium ${onglet === "reseaux" ? "bg-[#1b1411] text-white" : "text-ink-soft"}`}>Réseaux des marques</button>
       </div>
       {onglet === "alertes" ? (alertes ? <AlertesCrise a={alertes} /> : <Skeleton className="h-96" />) : onglet === "reseaux" ? (reseaux ? <ReseauxMarques r={reseaux} /> : <Skeleton className="h-96" />) : <>
-      <form onSubmit={analyser} className="rounded-[16px] border border-line bg-paper p-3 shadow-[0_8px_24px_-18px_rgb(19_35_63/0.35)]">
+      <form onSubmit={analyser} className="rounded-[16px] border border-line bg-paper p-3 shadow-[0_8px_24px_-18px_rgb(27_20_17/0.35)]">
         <div className="flex flex-col gap-2 sm:flex-row">
           <label className="flex min-w-0 flex-1 items-center gap-2 rounded-[12px] bg-ground px-3">
             <Search size={18} className="shrink-0 text-ink-faint" aria-hidden />

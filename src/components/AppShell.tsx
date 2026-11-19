@@ -13,10 +13,10 @@ const initials = (name: string) =>
 /** Pages sans le rail : connexion, offres, rapport partagé. */
 const BARE = ["/login", "/offres", "/share"];
 
-function LogoChip({ className = "" }: { className?: string }) {
+function LogoChip({ className = "", petit = false }: { className?: string; petit?: boolean }) {
   return (
-    <Link href="/" aria-label="Lookout, accueil" className={`press inline-flex rounded-[10px] bg-paper px-3.5 py-2.5 ${className}`}>
-      <Logo className="h-8 w-auto" />
+    <Link href="/" aria-label="Lookout, accueil" className={`press inline-flex ${className}`}>
+      <Logo clair className={petit ? "h-11 w-auto" : "h-[76px] w-auto"} />
     </Link>
   );
 }
@@ -140,7 +140,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Barre du haut et menu sur petit écran */}
       <div className="sticky top-0 z-30 flex items-center justify-between bg-night px-4 py-3 lg:hidden">
-        <LogoChip />
+        <LogoChip petit />
         <button onClick={() => setOpen(true)} aria-expanded={open} aria-controls="menu-mobile" className="press rounded-[10px] p-2.5 text-white hover:bg-night-2" aria-label="Ouvrir le menu">
           <Menu size={22} />
         </button>

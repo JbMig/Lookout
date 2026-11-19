@@ -97,6 +97,48 @@ export async function listRuns(): Promise<AgentRun[]> {
   return getSetting<AgentRun[]>(RUNS_KEY, []);
 }
 
+const SESSION_ID = /session ([0-9a-f-]{36})/i;
+const DONE = ["completed", "idle"];
+const STOPPED = ["failed", "timed_out", "interrupted"];
+
+/**
+ * Met à jour les lancements H Company encore « started » en lisant l'état de leur session
+ * (terminée, en échec, expirée). Sans cela, le journal ne saurait jamais qu'un agent Holo a fini.
+ */
+export async function syncRuns(): Promise<AgentRun[]> {
+  const runs = await listRuns();
+  if (isDemo.hcompany) return runs;
+  const since = Date.now() - 24 * 3600_000;
+  const open = runs.filter((r) => r.via === "h-company" && r.status === "started" && Date.parse(r.at) > since && SESSION_ID.test(r.message)).slice(0, 8);
+  if (!open.length) return runs;
+  const updates = await Promise.all(open.map(async (r): Promise<AgentRun | null> => {
+    const id = r.message.match(SESSION_ID)![1];
+    try {
+      const res = await fetch(`${config.hcompany.baseUrl}/sessions/${id}`, { headers: { Authorization: `Bearer ${config.hcompany.apiKey}` }, signal: AbortSignal.timeout(8_000) });
+      if (!res.ok) return null;
+      const s = (await res.json()) as { status?: { status?: string; error?: string | null } | string; latest_answer?: unknown };
+      const status = typeof s.status === "string" ? s.status : s.status?.status;
+      const error = typeof s.status === "object" ? s.status?.error : null;
+      if (!status || (!DONE.includes(status) && !STOPPED.includes(status))) return null;
+      const answer = typeof s.latest_answer === "string" ? s.latest_answer : s.latest_answer ? JSON.stringify(s.latest_answer) : "";
+      const ok = DONE.includes(status);
+      const message = ok
+        ? `${agentInfo(r.agent).name} terminé (session ${id}).${answer ? ` ${answer.replace(/\s+/g, " ").slice(0, 400)}` : ""}`
+        : `${agentInfo(r.agent).name} : session ${id} ${status}${error ? ` (${error})` : ""}.`;
+      // Agent 4 en échec : la page du dashboard cesse d'attendre.
+      const report = r.agent === "4" && r.link?.startsWith("/dashboard/") ? r.link.slice("/dashboard/".length) : null;
+      if (!ok && report) await repo().update("reports", report, { status: "failed", error_message: message.slice(0, 500) }).catch(() => undefined);
+      return { ...r, status: ok ? "completed" : "failed", finishedAt: new Date().toISOString(), message };
+    } catch {
+      return null;
+    }
+  }));
+  let out = runs;
+  for (const u of updates) if (u) out = out.map((r) => (r.id === u.id ? u : r));
+  if (updates.some(Boolean)) await setSetting(RUNS_KEY, out);
+  return out;
+}
+
 async function saveRun(run: AgentRun) {
   const runs = (await listRuns()).filter((r) => r.id !== run.id);
   await setSetting(RUNS_KEY, [run, ...runs].slice(0, MAX_RUNS));

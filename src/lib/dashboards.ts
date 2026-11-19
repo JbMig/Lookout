@@ -19,6 +19,7 @@ export interface DashboardMeta {
   config: Record<string, unknown>;
   format: DashboardFormat;
   data: Record<string, unknown> | null;
+  error: string | null;
 }
 
 const cfg = (r: Raw) => (r.config as Raw | null) ?? {};
@@ -40,5 +41,6 @@ export function dashboardMeta(report: Raw, opts: { publicView?: boolean } = {}):
     config: cfg(report),
     format: holo ? "agent4" : "radar",
     data: holo ? ((report.data as Raw) ?? {}) : null,
+    error: (report.error_message as string) ?? null,
   };
 }

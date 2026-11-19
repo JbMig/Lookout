@@ -30,3 +30,8 @@ En mode démo (sans variables Supabase), `.data/db.json` reproduit ces mêmes ta
 Réglages de l'application, une ligne par clé :
 - `agent_config` : marque, zone (US/FR/EU), catégorie, formats connus, URL de départ (page /settings) ;
 - `agent_runs` : journal des 120 derniers déclenchements d'agents depuis le site (boutons et pipeline).
+
+## prisme_analyses (ajoutée le 2026-11-19)
+
+Historique des recherches Prisme, listé dans « Social listening ». Une ligne par recherche : sujet, question, pays,
+veille utilisée, titre et accroche, et le dashboard complet (`resultat`, format `DashboardPrisme`) pour le rouvrir à l'identique.

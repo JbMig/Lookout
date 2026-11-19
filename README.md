@@ -63,6 +63,9 @@ Toutes les pages, y compris les liens de partage, demandent d'être connecté.
 ## Les agents
 
 Chaque page porte un bouton qui lance son agent ; le suivi s'affiche sur la page (`/api/agents/run`).
+Toutes les demandes passent par l'orchestrateur Holo `ochestrateur-pipeline` (`HAI_ORCHESTRATOR`), qui les confie au bon
+sous-agent et renvoie sa réponse ; le journal lit l'état des sessions H Company (terminé, en échec). `HAI_DIRECT=1` appelle
+les agents sans l'orchestrateur, en secours.
 
 | Agent | Produit | Exécution actuelle |
 |---|---|---|
@@ -84,6 +87,10 @@ scores sur 10) sont aussi lus et normalisés.
 - **Analyses** : `analyses`, `growth_opportunities` (types `price_gap`, `format_gap`, `shade_gap`, `ingredient`…), `reports`.
 - **Social listening** : tables `sl_*` (collecte n8n → Hugging Face) et `prisme_analyses` (historique Prisme).
 - **Réglages** : `app_settings`. **Sites** : `sites`.
+- **Vues pour les agents Holo** : `circana_sku` (ventes du dernier import au niveau SKU, avec `country`, `annee`, `format`) et
+  `catalog_variants` (teintes du catalogue client).
+- **Edge Functions** (sources dans `supabase/functions/`) : `import-circana` (ignore les dossiers et les fichiers redéposés à
+  l'identique), `save-analysis` (enregistrement de l'Agent 3), `save-report`, `save-product`, `update-catalog`, `recherche-web`.
 
 Les tables optionnelles (`enrichment_jobs`, `brand_aliases`, tables Circana) peuvent être absentes : la lecture renvoie
 une liste vide au lieu de casser la page. Migrations dans `supabase/migrations/`, correspondance dans `supabase/SCHEMA.md`.

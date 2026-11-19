@@ -51,11 +51,13 @@ const SESSION: Partial<Record<AgentId, (cfg: AgentConfig) => string>> = {
     `Marque : ${cfg.brand}. Pays : ${country(cfg.zone)}. Catégorie : ${cfg.category}.`,
     `Formats connus dans les ventes : ${cfg.formats.length ? cfg.formats.join(", ") : "non précisés"}.`,
     `Adresse de départ : ${cfg.startUrl || "non fournie (cherche le site officiel de la marque pour ce pays)"}.`,
+    `Ne relève que des produits de la catégorie ${cfg.category} (pas de bronzer, highlighter, coffret ni produit lèvres seul) et un seul relevé par produit : fusionne les variantes d'un même produit.`,
+    "Pour chaque teinte, obtiens le code hex via ton sous-agent hex (shade-color-expert) avant de sauvegarder ; relève le prix affiché, et explique dans notes s'il est absent.",
     "Relève le catalogue de la marque puis sauvegarde-le avec update-catalog.",
   ].join("\n"),
   "2": () => "Tu es l'Agent 2 : enrichissement web des produits concurrents. Récupère les produits via get_top_competitors(), traite-les un par un jusqu'à ce qu'il n'en reste plus, délègue les couleurs au sous-agent Shade Color Expert, sauvegarde via l'Edge Function save-product et vérifie à la fin (0 ligne restante, aucune teinte sans hex ni image).",
   "2.5": (cfg) => `Recherche : « ${[cfg.category, ...cfg.formats].join(" ")} ». Zone : ${cfg.zone === "US" ? "US" : "EU"}.`,
-  "3": () => "Tu es l'Agent 3 : analyse concurrentielle. Lis catalog_products, market_products, market_shades, market_ingredients et circana_sales, compare prix, formats, teintes et ingrédients. Écris d'abord une ligne dans analyses, puis une ligne par opportunité dans growth_opportunities avec analysis_id renseigné. Termine par les 3 opportunités les plus intéressantes avec les chiffres.",
+  "3": () => `Tu es l'Agent 3 : analyse concurrentielle. Lis catalog_products (teintes dans catalog_variants), market_products, market_shades et market_ingredients, compare prix, formats, teintes et ingrédients. Pour les ventes, lis la vue circana_sku (dernier import, niveau SKU : country US ou FR, annee, format, revenue en unité monétaire réelle) plutôt que circana_sales, qui contient d'anciens imports. Enregistre l'analyse et ses opportunités en ouvrant ${fn("save-analysis")}?p=<JSON encodé> avec { "analyse": { "params": {...}, "result": { "synthese", "top_3", "nb_opportunites" } }, "opportunites": [ { "kind": "prix|format|teinte|ingredient", "title", "description", "score": 0-100, "estimated_impact", "refs" } ] } ; si l'adresse dépasse 6000 caractères, envoie d'abord l'analyse avec quelques opportunités puis les suivantes avec { "analysis_id", "opportunites" }. Succès seulement si la réponse contient "ok": true. Termine par les 3 opportunités les plus intéressantes avec les chiffres.`,
 };
 
 /** Agent 2.5 : sites de la page « Sites suivis » pour la zone, sans l'empêcher d'en explorer d'autres. */
@@ -76,18 +78,39 @@ async function importHolo(cfg: AgentConfig, p: Record<string, unknown>) {
     p.force ? "Remplace l'import existant (ajoute &force=1)." : "",
     "Fais ensuite la vérification obligatoire. Ne demande rien à l'utilisateur.",
   ].filter(Boolean).join("\n"));
-  return { status: "started" as const, via: "h-company" as const, message: `Agent Holo ${HOLO["1"]} lancé (session ${s.id}). Les ventes apparaîtront dès la fin de l'import.`, link: s.agent_view_url ?? "/import" };
+  return { status: "started" as const, via: "h-company" as const, message: `Agent Holo ${s.via} lancé (session ${s.id}). Les ventes apparaîtront dès la fin de l'import.`, link: s.agent_view_url ?? "/import" };
+}
+
+/**
+ * Orchestrateur Holo : chaque demande passe par lui, il la confie au bon sous-agent (h/swarm) et renvoie sa réponse.
+ * HAI_DIRECT=1 permet de revenir à un appel direct de l'agent en cas de panne de l'orchestrateur.
+ */
+const ORCHESTRATOR = process.env.HAI_ORCHESTRATOR || "ochestrateur-pipeline";
+
+function routage(cible: string, brief: string): string {
+  return [
+    `MODE ROUTAGE (prioritaire sur le déroulé complet du pipeline) : n'exécute qu'UNE seule étape.`,
+    `Délègue via h/swarm au sous-agent « ${cible} » le brief ci-dessous, sans le modifier ni le résumer.`,
+    `N'appelle aucun autre sous-agent et ne fais aucun travail toi-même. Attends son statut terminal,`,
+    `puis retourne sa réponse finale telle quelle. S'il échoue, retourne son erreur exacte.`,
+    "",
+    `--- BRIEF POUR ${cible} ---`,
+    brief,
+  ].join("\n");
 }
 
 async function holoSession(name: string, message: string) {
+  const direct = process.env.HAI_DIRECT === "1";
+  const agent = direct ? name : ORCHESTRATOR;
   const res = await fetch(`${config.hcompany.baseUrl}/sessions`, {
     method: "POST",
     headers: { Authorization: `Bearer ${config.hcompany.apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ agent: name, messages: message, max_time_s: Math.max(config.hcompany.maxTimeS, 1800) }),
+    body: JSON.stringify({ agent, messages: direct ? message : routage(name, message), max_time_s: Math.max(config.hcompany.maxTimeS, 2400) }),
     signal: AbortSignal.timeout(30_000),
   });
-  if (!res.ok) throw new Error(`H Company (${name}) ${res.status} : ${(await res.text().catch(() => "")).slice(0, 160)}`);
-  return (await res.json()) as { id: string; agent_view_url?: string };
+  if (!res.ok) throw new Error(`H Company (${agent}) ${res.status} : ${(await res.text().catch(() => "")).slice(0, 160)}`);
+  const s = (await res.json()) as { id: string; agent_view_url?: string };
+  return { ...s, via: direct ? name : `${ORCHESTRATOR} → ${name}` };
 }
 
 const RUNS_KEY = "agent_runs";
@@ -195,7 +218,7 @@ async function external(agent: AgentId, cfg: AgentConfig, params: Record<string,
     const extra = SESSION[agent] ? [SESSION[agent]!(cfg)] : [];
     if (agent === "2.5") extra.push(await suivis(cfg));
     const s = name ? await holoSession(name, holoParams(cfg, extra)) : await holoSession(config.hcompany.agent, task);
-    return { status: "started", via: "h-company", message: `Agent Holo ${name || config.hcompany.agent} lancé (session ${s.id}).`, link: s.agent_view_url ?? null };
+    return { status: "started", via: "h-company", message: `Agent Holo ${s.via} lancé (session ${s.id}).`, link: s.agent_view_url ?? null };
   }
   return {
     status: "requested",
@@ -263,7 +286,7 @@ async function dashboard(cfg: AgentConfig, userId: string | null, params: Record
 /** Agent 3 Holo : il écrit lui-même analyses et growth_opportunities ; la page Analyse les affiche dès qu'ils arrivent. */
 async function analyseHolo(cfg: AgentConfig) {
   const s = await holoSession(HOLO["3"]!, holoParams(cfg, [SESSION["3"]!(cfg)]));
-  return { status: "started" as const, via: "h-company" as const, message: `Agent Holo ${HOLO["3"]} lancé (session ${s.id}). Les résultats apparaîtront dans Analyse et Opportunités.`, link: s.agent_view_url ?? null };
+  return { status: "started" as const, via: "h-company" as const, message: `Agent Holo ${s.via} lancé (session ${s.id}). Les résultats apparaîtront dans Analyse et Opportunités.`, link: s.agent_view_url ?? null };
 }
 
 /**
@@ -287,10 +310,12 @@ async function dashboardHolo(cfg: AgentConfig, userId: string | null) {
     const country = cfg.zone === "US" ? "US" : cfg.zone === "FR" ? "FR" : "global";
     const s = await holoSession(HOLO["4"]!, holoParams(cfg, [
       `Tu es l'Agent 4 : génération du rapport JSON. category = ${cfg.category}, country = ${country}, period = FY 2025 vs FY 2024${cfg.brand ? `, brand = ${cfg.brand}` : ""}.`,
+      "Ventes : lis la vue circana_sku (dernier import, niveau SKU) au lieu de circana_sales : filtre par country=eq.US ou country=eq.FR (pas region), annee=eq.2025 ou 2024, et regroupe par format (liquide, compact, creme, stick). revenue est en unité monétaire réelle.",
+      "Écris les montants de chiffre d'affaires en unités réelles (pas en millions) et ajoute \"unit\": \"EUR/USD\" dans meta ; si tu préfères les millions, mets \"unit\": \"M\".",
       `Sauvegarde dans reports via l'Edge Function save-report (GET avec ?p=) en utilisant OBLIGATOIREMENT share_slug = "${slug}" pour chaque appel.`,
       "Retourne l'id du rapport, le share_slug et le JSON complet.",
     ]));
-    return { status: "started" as const, via: "h-company" as const, message: `Agent Holo ${HOLO["4"]} lancé (session ${s.id}). Le dashboard s'affichera dès que l'agent l'aura enregistré.`, link: `/dashboard/${report.id}` };
+    return { status: "started" as const, via: "h-company" as const, message: `Agent Holo ${s.via} lancé (session ${s.id}). Le dashboard s'affichera dès que l'agent l'aura enregistré.`, link: `/dashboard/${report.id}` };
   } catch (e) {
     await repo().remove("reports", report.id).catch(() => undefined);
     throw e;

@@ -17,7 +17,14 @@ const STYLES: Record<string, { label: string; tone: Tone }> = {
   computer_use: { label: "Computer use", tone: "night" },
   needs_review: { label: "À traiter", tone: "wait" },
   blocked: { label: "Bloqué", tone: "bad" },
-  requested: { label: "Demandé", tone: "neutral" },
+  requested: { label: "Demandé à l'équipe", tone: "neutral" },
+  started: { label: "Transmis à l'agent", tone: "wait" },
+  running: { label: "En cours", tone: "wait" },
+  processing: { label: "En cours", tone: "wait" },
+  queued: { label: "En file", tone: "neutral" },
+  completed: { label: "Terminé", tone: "ok" },
+  ready: { label: "Prêt", tone: "ok" },
+  enriched: { label: "Enrichi", tone: "ok" },
 };
 
 export function StatusBadge({ status }: { status: string }) {

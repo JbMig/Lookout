@@ -23,3 +23,6 @@ export const fmtMoney = (v: number | null | undefined, cur?: string | null) =>
 
 export const fmtDate = (iso: string) =>
   new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" });
+
+export const fmtDateTime = (iso: string) =>
+  new Date(iso).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });

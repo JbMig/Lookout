@@ -105,8 +105,8 @@ export function AgentButton({
       <p className="line-clamp-2 max-w-[340px] text-[12.5px] text-ink-faint sm:text-right" aria-live="polite">
         {error ? <span className="text-bad">{error}</span>
           : disabled ? disabled
-          : last ? <>Agent {info.id} · {info.owner} · <span className="whitespace-nowrap">{fmtDate(last.at)}</span> · {last.message}</>
-          : <>Agent {info.id} · {info.owner} · jamais lancé depuis le site</>}
+          : last ? <>Agent {info.id} · <span className="whitespace-nowrap">{fmtDate(last.at)}</span> · {last.message}</>
+          : <>Agent {info.id} · jamais lancé depuis le site</>}
       </p>
       {last && !error && !disabled && <StatusBadge status={last.status} />}
     </div>

@@ -101,7 +101,7 @@ function Pipeline() {
               <li key={a} className="grid grid-cols-[28px_minmax(0,1fr)] gap-3 rounded-[10px] px-2 py-3 sm:grid-cols-[28px_minmax(0,1fr)_auto]">
                 <StepIcon run={run} active={current === a} />
                 <div className="min-w-0">
-                  <p className="font-medium">{n + 1}. {info.name} <span className="font-normal text-ink-faint">· Agent {a} · {info.owner}</span></p>
+                  <p className="font-medium">{n + 1}. {info.name} <span className="font-normal text-ink-faint">· Agent {a}</span></p>
                   <p className="text-[13px] text-ink-soft">{run?.message || facts[a] || `Écrit dans ${info.produces}`}</p>
                   {run?.link && run.link.startsWith("http") && <a href={run.link} target="_blank" rel="noreferrer" className="text-[13px] underline underline-offset-4">Voir l&apos;agent travailler</a>}
                 </div>

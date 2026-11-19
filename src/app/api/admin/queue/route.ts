@@ -11,7 +11,7 @@ export const GET = handle(async () => {
   const db = repo();
   const jobs = await db.select<EnrichmentJobRow>("enrichment_jobs", {
     eq: { target_type: "market_product" }, in: ["status", OPEN_JOB], order: ["created_at", "asc"], limit: 300,
-  });
+  }).catch(() => [] as EnrichmentJobRow[]); // table enrichment_jobs absente : file vide
   const products = await loadSheets(jobs.map((j) => j.target_id));
   const sites = await listSites();
   const reports = await db.select<ReportDbRow>("reports", { eq: { type: "dashboard" }, order: ["created_at", "desc"], limit: 200 });

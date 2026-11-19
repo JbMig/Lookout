@@ -2,6 +2,7 @@ import "server-only";
 import { repo, selectAll } from "./repo";
 import { getAgentConfig } from "./settings";
 import { RADAR_TEMPLATE } from "./radar-template";
+import { loadSkuSales } from "./circana";
 
 /**
  * Dashboard « Market Radar » : le gabarit HTML fourni, rempli avec les données Lookout lues dans Supabase
@@ -14,7 +15,8 @@ const json = (v: unknown) => JSON.stringify(v).replace(/</g, "\\u003c").replace(
 
 export async function radarHtml(): Promise<string> {
   const cfg = await getAgentConfig();
-  const [imports, salesAll, products, shades, ingredients, synthesis] = await Promise.all([
+  const [skuTables, imports, salesAll, products, shades, ingredients, synthesis] = await Promise.all([
+    loadSkuSales(cfg.category || "blush"),
     repo().select<Raw>("circana_imports", { eq: { status: "completed" }, order: ["created_at", "desc"], limit: 50 }),
     selectAll<Raw>("circana_sales", { order: ["id", "asc"] }),
     selectAll<Raw>("market_products", { order: ["id", "asc"] }),
@@ -26,9 +28,12 @@ export async function radarHtml(): Promise<string> {
   // Le gabarit lit les Top 50 SKU (lignes « sku » de l'Agent 1) : on prend l'import le plus récent qui en contient.
   const sku = salesAll.filter((s) => ((s.raw ?? {}) as Raw).niveau === "sku");
   const importId = imports.map((i) => i.id).find((id) => sku.some((s) => s.import_id === id)) ?? sku[0]?.import_id;
-  const sales = sku
-    .filter((s) => s.import_id === importId)
-    .map((s) => ({ period: s.period, country: s.country, brand: s.brand, product_name: s.product_name, segment: s.segment, subsegment: s.subsegment, revenue: s.revenue, raw: s.raw }));
+  // Source principale : les tables Top 50 SKU de l'Agent 1 ; à défaut, les lignes « sku » de circana_sales.
+  const sales = skuTables.length
+    ? skuTables.map((s) => ({ period: s.period, country: s.country, brand: s.brand, product_name: s.product_name, segment: s.segment, subsegment: s.subsegment, revenue: s.revenue, raw: s.raw }))
+    : sku
+        .filter((s) => s.import_id === importId)
+        .map((s) => ({ period: s.period, country: s.country, brand: s.brand, product_name: s.product_name, segment: s.segment, subsegment: s.subsegment, revenue: s.revenue, raw: s.raw }));
 
   const snapshot = {
     generated_at: new Date().toLocaleString("fr-FR", { timeZone: "Europe/Paris", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }).replace(",", ""),

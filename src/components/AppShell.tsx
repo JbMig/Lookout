@@ -2,16 +2,10 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { BookOpenCheck, FilePlus2, Layers, LogOut, Menu, ShieldCheck, UserRound, X, Radar } from "lucide-react";
+import { BarChart3, FileUp, Globe2, LayoutDashboard, Lightbulb, LogOut, Menu, Package, Radar, Settings2, ShieldCheck, Swords, UserRound, X, LineChart } from "lucide-react";
 import { Logo } from "./Logo";
 import { useSession } from "./Session";
-import { api, fmtDate } from "@/lib/client";
 
-interface Recent {
-  id: string;
-  name: string;
-  created_at: string;
-}
 
 const initials = (name: string) =>
   name.includes("@") ? name.slice(0, 2).toUpperCase() : name.split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
@@ -31,70 +25,67 @@ function Rail({ onNavigate }: { onNavigate?: () => void }) {
   const { me, signOut } = useSession();
   const pathname = usePathname();
   const router = useRouter();
-  const [recent, setRecent] = useState<Recent[]>([]);
-
-  useEffect(() => {
-    api<{ reports: Recent[] }>("/api/reports")
-      .then((r) => setRecent(r.reports.slice(0, 5)))
-      .catch(() => null);
-  }, [pathname]);
 
   async function logout() {
     await signOut();
     router.push("/login");
   }
 
-  const links = [
-    { href: "/", label: "Analyses", icon: BookOpenCheck, match: (p: string) => p === "/" || p.startsWith("/reports") },
-    { href: "/new", label: "Nouvelle analyse", icon: FilePlus2, match: (p: string) => p === "/new" },
-    { href: "/catalogue", label: "Catalogues", icon: Layers, match: (p: string) => p === "/catalogue" },
-    { href: "/social", label: "Social listening", icon: Radar, match: (p: string) => p.startsWith("/social") },
-    ...(me?.user.isStaff ? [{ href: "/admin", label: "Administration", icon: ShieldCheck, match: (p: string) => p === "/admin" }] : []),
+  const groups: { title: string | null; links: { href: string; label: string; icon: typeof Settings2 }[] }[] = [
+    {
+      title: "Données",
+      links: [
+        { href: "/settings", label: "Réglages", icon: Settings2 },
+        { href: "/import", label: "Import Circana", icon: FileUp },
+        { href: "/catalog", label: "Votre catalogue", icon: Package },
+        { href: "/market", label: "Marché", icon: BarChart3 },
+        { href: "/competitors", label: "Concurrents", icon: Swords },
+      ],
+    },
+    {
+      title: "Résultats",
+      links: [
+        { href: "/analysis", label: "Analyse", icon: LineChart },
+        { href: "/opportunities", label: "Opportunités", icon: Lightbulb },
+        { href: "/dashboard", label: "Dashboards", icon: LayoutDashboard },
+      ],
+    },
+    {
+      title: "Veille",
+      links: [
+        { href: "/social", label: "Social listening", icon: Radar },
+        { href: "/sites", label: "Sites suivis", icon: Globe2 },
+        ...(me?.user.isStaff ? [{ href: "/admin", label: "Administration", icon: ShieldCheck }] : []),
+      ],
+    },
   ];
+  const isOn = (href: string) => pathname === href || pathname.startsWith(`${href}/`) || (href === "/dashboard" && pathname.startsWith("/reports"));
 
   return (
     <div className="flex h-full flex-col gap-1 px-4 py-5 text-night-text">
       <LogoChip className="mb-6 self-start" />
-      <nav aria-label="Navigation principale" className="flex flex-col gap-1">
-        {links.map(({ href, label, icon: Icon, match }) => {
-          const on = match(pathname);
-          return (
-            <Link
-              key={href}
-              href={href}
-              onClick={onNavigate}
-              aria-current={on ? "page" : undefined}
-              className={`press flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-sm font-semibold ${on ? "bg-night-3 text-white" : "hover:bg-night-2 hover:text-white"}`}
-            >
-              <Icon size={17} strokeWidth={2} aria-hidden />
-              {label}
-            </Link>
-          );
-        })}
-      </nav>
-
-      {recent.length > 0 && (
-        <div className="mt-7">
-          <p className="px-3 text-xs font-semibold text-night-muted">Récentes</p>
-          <ul className="mt-2 flex flex-col gap-0.5">
-            {recent.map((r) => {
-              const on = pathname === `/reports/${r.id}`;
+      <nav aria-label="Navigation principale" className="-mx-1 flex flex-col gap-4 overflow-y-auto px-1">
+        {groups.map((g, gi) => (
+          <div key={gi} className="flex flex-col gap-0.5">
+            {g.title && <p className="px-3 pb-1 text-xs font-semibold text-night-muted">{g.title}</p>}
+            {g.links.map(({ href, label, icon: Icon }) => {
+              const on = isOn(href);
               return (
-                <li key={r.id}>
-                  <Link
-                    href={`/reports/${r.id}`}
-                    onClick={onNavigate}
-                    className={`press block rounded-lg px-3 py-2 text-[13px] leading-snug ${on ? "bg-night-2 text-white" : "hover:bg-night-2 hover:text-white"}`}
-                  >
-                    <span className="line-clamp-1">{r.name}</span>
-                    <span className="block text-xs text-night-muted">{fmtDate(r.created_at)}</span>
-                  </Link>
-                </li>
+                <Link
+                  key={href}
+                  href={href}
+                  onClick={onNavigate}
+                  aria-current={on ? "page" : undefined}
+                  className={`press flex items-center gap-3 rounded-[10px] px-3 py-2 text-sm font-semibold ${on ? "bg-night-3 text-white" : "hover:bg-night-2 hover:text-white"}`}
+                >
+                  <Icon size={17} strokeWidth={2} aria-hidden />
+                  {label}
+                </Link>
               );
             })}
-          </ul>
-        </div>
-      )}
+          </div>
+        ))}
+      </nav>
 
       {me && (
         <div className="mt-auto border-t border-night-line pt-4">

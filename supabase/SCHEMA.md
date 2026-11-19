@@ -24,3 +24,9 @@ Absent du schéma, donc géré autrement : les journaux d'appels
 (logs Vercel), les organisations, invitations et quotas (espace unique, équipe définie par `STAFF_EMAILS`).
 
 En mode démo (sans variables Supabase), `.data/db.json` reproduit ces mêmes tables.
+
+## app_settings (ajoutée le 2026-11-19)
+
+Réglages de l'application, une ligne par clé :
+- `agent_config` : marque, zone (US/FR/EU), catégorie, formats connus, URL de départ (page /settings) ;
+- `agent_runs` : journal des 120 derniers déclenchements d'agents depuis le site (boutons et pipeline).

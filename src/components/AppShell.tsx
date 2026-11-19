@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { BarChart3, FileUp, Globe2, LayoutDashboard, Lightbulb, LogOut, Menu, Package, Radar, Settings2, ShieldCheck, Swords, UserRound, X, LineChart } from "lucide-react";
+import { BarChart3, FileUp, Globe2, LayoutDashboard, Lightbulb, LogOut, Menu, Package, Radar, Settings2, ShieldCheck, Sparkles, Swords, UserRound, X, LineChart } from "lucide-react";
 import { Logo } from "./Logo";
 import { useSession } from "./Session";
 
@@ -54,6 +54,7 @@ function Rail({ onNavigate }: { onNavigate?: () => void }) {
       title: "Veille",
       links: [
         { href: "/social", label: "Social listening", icon: Radar },
+        { href: "/prisme", label: "Prisme", icon: Sparkles },
         { href: "/sites", label: "Sites suivis", icon: Globe2 },
         ...(me?.user.isStaff ? [{ href: "/admin", label: "Administration", icon: ShieldCheck }] : []),
       ],

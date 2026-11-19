@@ -138,7 +138,8 @@ export async function loadUniverse(): Promise<Universe> {
     selectAll<Raw>("market_shades", { order: ["position", "asc"] }),
     selectAll<Raw>("market_ingredients", { order: ["position", "asc"] }),
     selectAll<Raw>("circana_sales", { order: ["created_at", "desc"] }),
-    selectAll<Raw>("enrichment_jobs"),
+    // Facultative : la table a été retirée de la base ; la progression se lit alors sur market_products.
+    selectAll<Raw>("enrichment_jobs").catch(() => null),
     repo().select<Raw>("brand_aliases").catch(() => [] as Raw[]),
   ]);
 
@@ -263,7 +264,8 @@ export async function loadUniverse(): Promise<Universe> {
     };
   });
 
-  const count = (st: string[]) => jobRows.filter((j) => st.includes(String(j.status))).length;
+    const jobs: Raw[] = jobRows ?? marketRows.map((m) => ({ status: m.status === "enriched" || m.enriched_at ? "completed" : m.status === "failed" ? "failed" : "queued" }));
+  const count = (st: string[]) => jobs.filter((j) => st.includes(String(j.status))).length;
   return {
     config,
     years,
@@ -271,7 +273,7 @@ export async function loadUniverse(): Promise<Universe> {
     market,
     sales,
     enrichment: {
-      total: jobRows.length,
+      total: jobs.length,
       done: count(["completed", "done", "succeeded"]),
       queued: count(["queued", "pending"]),
       running: count(["running", "processing", "in_progress"]),

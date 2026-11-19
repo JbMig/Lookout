@@ -316,9 +316,13 @@ export function useHashScroll(ready: boolean) {
   }, [ready]);
 }
 
-export function namesOf(u: Universe | null): Map<string, string> {
-  const m = new Map<string, string>();
-  for (const c of u?.catalog ?? []) m.set(c.id, c.name);
-  for (const p of u?.market ?? []) m.set(p.id, `${p.brand} ${p.name}`);
+export interface ProductRef { brand: string; name: string; image: string | null; price: string | null }
+
+/** Produits cités par les opportunités : marque, nom sans la marque répétée, visuel, prix. */
+export function namesOf(u: Universe | null): Map<string, ProductRef> {
+  const m = new Map<string, ProductRef>();
+  const bare = (brand: string, name: string) => name.replace(new RegExp(`^${brand.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s+`, "i"), "");
+  for (const c of u?.catalog ?? []) m.set(c.id, { brand: c.brand, name: bare(c.brand, c.name), image: c.image, price: c.price === null ? null : money(c.price, c.currency, 0) });
+  for (const p of u?.market ?? []) m.set(p.id, { brand: p.brand, name: bare(p.brand, p.name), image: p.packshot, price: p.price === null ? null : money(p.price, p.currency, 0) });
   return m;
 }

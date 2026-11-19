@@ -42,7 +42,12 @@ function Competitors() {
   const [filters, setFilters] = useState(NO_FILTERS);
   const [shown, setShown] = useState(() => (typeof window !== "undefined" && window.location.hash ? 100_000 : PAGE));
   const competitors = useMemo(
-    () => (data?.market ?? []).filter((m) => !m.isClient && (m.status === "enriched" || m.enrichedAt || m.shades.length || m.inci.length)).sort((a, b) => a.brand.localeCompare(b.brand) || a.name.localeCompare(b.name)),
+    () => {
+      const target = typeof window !== "undefined" ? decodeURIComponent(window.location.hash.replace(/^#c-/, "")) : "";
+      return (data?.market ?? [])
+        .filter((m) => m.id === target || (!m.isClient && (m.status === "enriched" || m.enrichedAt || m.shades.length || m.inci.length)))
+        .sort((a, b) => a.brand.localeCompare(b.brand) || a.name.localeCompare(b.name));
+    },
     [data],
   );
   const list = useFiltered(competitors, filters);

@@ -1,0 +1,95 @@
+{
+ "nodes": [
+  {
+   "parameters": {
+    "httpMethod": "POST",
+    "path": "lookout-veille",
+    "authentication": "headerAuth",
+    "responseMode": "onReceived",
+    "options": {
+     "responseData": "Veille lancée"
+    }
+   },
+   "name": "API SaaS : nouvelle veille",
+   "type": "n8n-nodes-base.webhook",
+   "typeVersion": 2,
+   "position": [
+    0,
+    -220
+   ],
+   "webhookId": "lookout-veille-saas"
+  },
+  {
+   "parameters": {
+    "mode": "manual",
+    "assignments": {
+     "assignments": [
+      {
+       "id": "a1",
+       "name": "Sujet",
+       "value": "={{ $json.body.sujet }}",
+       "type": "string"
+      },
+      {
+       "id": "a2",
+       "name": "Pays",
+       "value": "={{ $json.body.pays || 'FR' }}",
+       "type": "string"
+      },
+      {
+       "id": "a3",
+       "name": "Sources",
+       "value": "={{ ({complet: 'Complet', economique: 'Économique', secours: 'Données déjà collectées'})[$json.body.mode] || 'Économique' }}",
+       "type": "string"
+      },
+      {
+       "id": "a4",
+       "name": "Budget Apify (USD)",
+       "value": "={{ $json.body.budget || 1 }}",
+       "type": "string"
+      },
+      {
+       "id": "a5",
+       "name": "Videos analysees en profondeur (images + audio)",
+       "value": "={{ $json.body.cerveau || 0 }}",
+       "type": "string"
+      },
+      {
+       "id": "a6",
+       "name": "Demande par",
+       "value": "={{ $json.body.demande_par || 'saas' }}",
+       "type": "string"
+      },
+      {
+       "id": "a7",
+       "name": "veille_id",
+       "value": "={{ $json.body.veille_id || '' }}",
+       "type": "string"
+      }
+     ]
+    },
+    "options": {}
+   },
+   "name": "Lire la demande du SaaS",
+   "type": "n8n-nodes-base.set",
+   "typeVersion": 3.4,
+   "position": [
+    220,
+    -220
+   ]
+  }
+ ],
+ "connections": {
+  "API SaaS : nouvelle veille": {
+   "main": [
+    [
+     {
+      "node": "Lire la demande du SaaS",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  }
+ }
+}

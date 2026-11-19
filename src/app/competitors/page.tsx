@@ -1,8 +1,8 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ExternalLink } from "lucide-react";
 import { Private } from "@/components/Session";
-import { FilterBar, NO_FILTERS, Packshot, Shaderange, TrendPill, money, useFiltered, useHashScroll, useUniverse } from "@/components/agents/kit";
+import { FilterBar, NO_FILTERS, Packshot, Shaderange, TrendPill, money, useFiltered, useUniverse } from "@/components/agents/kit";
 import { Card, Empty, ErrorText, PageHeader, PageSkeleton, btnSecondary } from "@/components/ui";
 import { ZONE_LABEL, formatLabel } from "@/lib/normalize";
 import type { MarketItem } from "@/lib/universe";
@@ -40,24 +40,39 @@ function Competitor({ m }: { m: MarketItem }) {
 function Competitors() {
   const { data, error } = useUniverse();
   const [filters, setFilters] = useState(NO_FILTERS);
-  const [shown, setShown] = useState(() => (typeof window !== "undefined" && window.location.hash ? 100_000 : PAGE));
+  const [shown, setShown] = useState(PAGE);
+  // Fiche demandée depuis une opportunité (#c-<id>) : lue après la navigation, affichée en tête de liste.
+  const [target, setTarget] = useState<string | null>(null);
+  useEffect(() => {
+    const read = () => setTarget(window.location.hash.startsWith("#c-") ? decodeURIComponent(window.location.hash.slice(3)) : null);
+    const t = setTimeout(read, 0);
+    window.addEventListener("hashchange", read);
+    return () => { clearTimeout(t); window.removeEventListener("hashchange", read); };
+  }, []);
   const competitors = useMemo(
-    () => {
-      const target = typeof window !== "undefined" ? decodeURIComponent(window.location.hash.replace(/^#c-/, "")) : "";
-      return (data?.market ?? [])
-        .filter((m) => m.id === target || (!m.isClient && (m.status === "enriched" || m.enrichedAt || m.shades.length || m.inci.length)))
-        .sort((a, b) => a.brand.localeCompare(b.brand) || a.name.localeCompare(b.name));
-    },
+    () =>
+      (data?.market ?? [])
+        .filter((m) => !m.isClient && (m.status === "enriched" || m.enrichedAt || m.shades.length || m.inci.length))
+        .sort((a, b) => a.brand.localeCompare(b.brand) || a.name.localeCompare(b.name)),
     [data],
   );
+  const picked = useMemo(() => (target ? (data?.market ?? []).find((m) => m.id === target) ?? null : null), [data, target]);
   const list = useFiltered(competitors, filters);
   const brands = useMemo(() => [...new Set(competitors.map((m) => m.brand))].sort(), [competitors]);
-  useHashScroll(!!data);
   if (!data) return error ? <ErrorText>{error}</ErrorText> : <PageSkeleton />;
 
   return (
     <div className="space-y-6">
       <PageHeader title="Concurrents" meta={<span>{competitors.length} produits enrichis par les agents 2 et 2.5 · prix en devise d&apos;origine</span>} />
+      {picked && (
+        <section aria-label="Fiche demandée" className="space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-[13px] font-medium text-ink-soft">Fiche demandée depuis une opportunité</p>
+            <button type="button" onClick={() => { history.replaceState(null, "", window.location.pathname); setTarget(null); }} className="press text-[13px] font-medium text-ink-soft underline-offset-4 hover:underline">Fermer</button>
+          </div>
+          <div className="rounded-[16px] ring-2 ring-amber"><Competitor m={picked} /></div>
+        </section>
+      )}
       <FilterBar value={filters} onChange={(f) => { setFilters(f); setShown(PAGE); }} brands={brands} show={["zone", "format", "brand", "price"]} />
       {!competitors.length ? (
         <Empty title="Aucun produit concurrent enrichi">Lancez l&apos;enrichissement depuis la page Marché.</Empty>

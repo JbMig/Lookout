@@ -9,8 +9,8 @@ export function RadarFrame({ src, title, height = "h-[calc(100dvh-120px)]" }: { 
   const [loaded, setLoaded] = useState(false);
   return (
     <div className="relative">
-      {!loaded && <div className="absolute inset-0 flex items-center justify-center rounded-[14px] bg-[#F7F5F2] text-sm text-ink-soft"><Loader2 size={18} className="mr-2 animate-spin" aria-hidden />Chargement des données…</div>}
-      <iframe id="radar-frame" src={src} title={title} onLoad={() => setLoaded(true)} className={`block ${height} min-h-[640px] w-full rounded-[14px] border border-line bg-[#F7F5F2]`} />
+      {!loaded && <div className="absolute inset-0 flex items-center justify-center rounded-[14px] bg-ground text-sm text-ink-soft"><Loader2 size={18} className="mr-2 animate-spin" aria-hidden />Chargement des données…</div>}
+      <iframe id="radar-frame" src={src} title={title} onLoad={() => setLoaded(true)} className={`block ${height} min-h-[640px] w-full rounded-[14px] border border-line bg-ground`} />
     </div>
   );
 }

@@ -32,10 +32,9 @@ function Analysis() {
   const latest = data.analyses.find((a) => a.id === data.latestId) ?? null;
   const running = data.analyses.find((a) => a.status === "running" || a.status === "pending");
   // Le résultat vient du moteur intégré (summary, comparison…) ou de l'Agent 3 externe (synthese, top_3, limites).
-  const r = (latest?.result ?? null) as (Partial<GrowthAnalysis> & { synthese?: string; top_3?: unknown; limites?: unknown }) | null;
+  const r = (latest?.result ?? null) as (Partial<GrowthAnalysis> & { synthese?: string; top_3?: unknown }) | null;
   const hasFindings = parseSynthesis(r?.summary ?? r?.synthese).findings.length > 0;
   const showTop = list(r?.top_3).length > 0 && !hasFindings;
-  const showLimits = list(r?.limites).length > 0;
 
   return (
     <div className="space-y-6">
@@ -58,15 +57,8 @@ function Analysis() {
             high={data.opportunities.filter((o) => priority(o) === "haute").length}
           />
           {/* Les points clés reprennent les constats : affichés seulement si la synthèse n'en contient pas. */}
-          {(showTop || showLimits) && (
-            <div className={`grid gap-6 ${showTop && showLimits ? "lg:grid-cols-2" : ""}`}>
-              {showTop && (
-                <Card><CardHead title="Points clés" /><ol className="list-decimal space-y-2 pl-5 text-sm">{list(r.top_3).map((t, i) => <li key={i}>{t}</li>)}</ol></Card>
-              )}
-              {showLimits && (
-                <Card><CardHead title="Limites des données" sub="Relevées par l'agent pendant l'analyse" /><ul className="list-disc space-y-1.5 pl-5 text-[13.5px] text-ink-soft">{list(r.limites).map((t, i) => <li key={i}>{t}</li>)}</ul></Card>
-              )}
-            </div>
+          {showTop && (
+            <Card><CardHead title="Points clés" /><ol className="list-decimal space-y-2 pl-5 text-sm">{list(r.top_3).map((t, i) => <li key={i}>{t}</li>)}</ol></Card>
           )}
           {Array.isArray(r.comparison) && (
             <Card flush>

@@ -6,10 +6,21 @@ import { fmtDate } from "@/lib/client";
 import { Private } from "@/components/Session";
 import { StatusBadge } from "@/components/StatusBadge";
 import { AgentButton, SettingsBanner, namesOf, useUniverse } from "@/components/agents/kit";
-import { OpportunityCard } from "@/components/agents/Opportunity";
-import { ComparisonTable, FormatsTable, IngredientsList, useAnalyses } from "@/components/agents/AnalysisParts";
+import { OpportunityCard, priority } from "@/components/agents/Opportunity";
+import { ComparisonTable, FormatsTable, IngredientsList, SynthesisCard, useAnalyses } from "@/components/agents/AnalysisParts";
 import { Card, CardHead, Empty, ErrorText, PageHeader, PageSkeleton } from "@/components/ui";
 import type { GrowthAnalysis } from "@/lib/growth";
+import { parseSynthesis } from "@/lib/synthesis";
+
+/** Catégorie, zones et période de l'analyse, quel que soit l'agent qui l'a écrite. */
+function synthesisMeta(params: Record<string, unknown> | null, period?: { prev: number | null; cur: number | null }): string[] {
+  const p = params ?? {};
+  const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null);
+  const category = str(p.category);
+  const zone = str(p.country) ?? str(p.zone);
+  const span = str(p.period) ?? (period?.cur ? `${period.prev ?? "?"}-${period.cur}` : null);
+  return [category && category.charAt(0).toUpperCase() + category.slice(1), zone, span && `ventes ${span.replace("-", " → ")}`].filter(Boolean) as string[];
+}
 
 const list = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
 
@@ -22,6 +33,9 @@ function Analysis() {
   const running = data.analyses.find((a) => a.status === "running" || a.status === "pending");
   // Le résultat vient du moteur intégré (summary, comparison…) ou de l'Agent 3 externe (synthese, top_3, limites).
   const r = (latest?.result ?? null) as (Partial<GrowthAnalysis> & { synthese?: string; top_3?: unknown; limites?: unknown }) | null;
+  const hasFindings = parseSynthesis(r?.summary ?? r?.synthese).findings.length > 0;
+  const showTop = list(r?.top_3).length > 0 && !hasFindings;
+  const showLimits = list(r?.limites).length > 0;
 
   return (
     <div className="space-y-6">
@@ -36,16 +50,20 @@ function Analysis() {
         <Empty title="Aucune analyse pour l'instant">Lancez l&apos;analyse une fois le catalogue audité et le marché enrichi.</Empty>
       ) : (
         <>
-          <Card>
-            <CardHead title="Synthèse" sub={`Analyse du ${fmtDate(latest!.createdAt)}${r.period?.cur ? ` · ventes ${r.period.prev ?? "?"} → ${r.period.cur}` : ""}`} />
-            <p className="max-w-[75ch] text-[15px] leading-relaxed">{r.summary ?? r.synthese ?? "Pas de synthèse."}</p>
-          </Card>
-          {(list(r.top_3).length > 0 || list(r.limites).length > 0) && (
-            <div className="grid gap-6 lg:grid-cols-2">
-              {list(r.top_3).length > 0 && (
+          <SynthesisCard
+            text={r.summary ?? r.synthese ?? "Pas de synthèse."}
+            date={fmtDate(latest!.createdAt)}
+            meta={synthesisMeta(latest!.params, r.period)}
+            opportunities={data.opportunities.length}
+            high={data.opportunities.filter((o) => priority(o) === "haute").length}
+          />
+          {/* Les points clés reprennent les constats : affichés seulement si la synthèse n'en contient pas. */}
+          {(showTop || showLimits) && (
+            <div className={`grid gap-6 ${showTop && showLimits ? "lg:grid-cols-2" : ""}`}>
+              {showTop && (
                 <Card><CardHead title="Points clés" /><ol className="list-decimal space-y-2 pl-5 text-sm">{list(r.top_3).map((t, i) => <li key={i}>{t}</li>)}</ol></Card>
               )}
-              {list(r.limites).length > 0 && (
+              {showLimits && (
                 <Card><CardHead title="Limites des données" sub="Relevées par l'agent pendant l'analyse" /><ul className="list-disc space-y-1.5 pl-5 text-[13.5px] text-ink-soft">{list(r.limites).map((t, i) => <li key={i}>{t}</li>)}</ul></Card>
               )}
             </div>

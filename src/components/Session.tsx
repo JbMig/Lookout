@@ -17,7 +17,7 @@ const Ctx = createContext<{ me: Me | null; loading: boolean; refresh: () => Prom
 });
 
 // Les liens de partage exigent un compte : ils affichent des ventes Circana sous licence du client.
-const PUBLIC = ["/login", "/offres", "/mentions-legales"];
+const PUBLIC = ["/login", "/offres"];
 const STORE = "lookout:me";
 
 function readStored(): Me | null {

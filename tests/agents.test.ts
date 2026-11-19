@@ -91,3 +91,28 @@ describe("Agent 3 intégré", () => {
     expect(soft.price).toBe(25);
   });
 });
+
+import { parseSynthesis } from "@/lib/synthesis";
+
+describe("synthèse de l'Agent 3", () => {
+  it("découpe contexte, périmètre, constats et remarques", () => {
+    const p = parseSynthesis(
+      "Analyse concurrentielle du blush pour la marque cliente Lancome (catalogue: 2 produits - Blush Subtil Powder 34 USD / 15 teintes) face a 25 produits concurrents. Constats: (1) format stick absent du catalogue client; (2) tranche de prix d'entree 20-27 USD inoccupee (prix client min. 34 USD); (3) ecart de prix 5 USD (15%) entre catalogue (34 USD) et marche (39 USD). Le powder client est bien positionne. Aucun ingredient cle renseigne.",
+    );
+    expect(p.lead).toBe("Analyse concurrentielle du blush pour la marque cliente Lancome face a 25 produits concurrents.");
+    expect(p.scope).toBe("2 produits - Blush Subtil Powder 34 USD / 15 teintes");
+    expect(p.findings).toEqual([
+      "Format stick absent du catalogue client",
+      "Tranche de prix d'entree 20-27 USD inoccupee (prix client min. 34 USD)",
+      "Ecart de prix 5 USD (15%) entre catalogue (34 USD) et marche (39 USD).",
+    ]);
+    expect(p.notes).toEqual(["Le powder client est bien positionne.", "Aucun ingredient cle renseigne."]);
+  });
+
+  it("garde un texte sans constats numérotés en phrases", () => {
+    const p = parseSynthesis("3 produits comparés. 2 opportunités, dont 1 de priorité haute.");
+    expect(p.lead).toBe("3 produits comparés.");
+    expect(p.findings).toEqual([]);
+    expect(p.notes).toEqual(["2 opportunités, dont 1 de priorité haute."]);
+  });
+});

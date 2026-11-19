@@ -7,6 +7,7 @@ import { Eye } from "lucide-react";
 import { PublicTop } from "@/components/PublicTop";
 import { Empty, PageHeader, PageSkeleton } from "@/components/ui";
 import { RadarFrame } from "@/components/agents/RadarFrame";
+import { Agent4Dashboard } from "@/components/agents/Agent4Dashboard";
 import type { DashboardMeta } from "@/lib/dashboards";
 
 /** Rapport partagé : lecture seule, réservée aux comptes Lookout. */
@@ -26,6 +27,11 @@ export default function SharedReportPage() {
       <div className="mx-auto w-full max-w-[1320px] px-5 py-7 sm:px-8 lg:px-10">
         {error ? (
           <Empty title="Ce rapport n'est plus partagé">{error}</Empty>
+        ) : dash?.format === "agent4" ? (
+          <div className="space-y-6">
+            <PageHeader title={dash.title} meta={<span>{fmtDate(dash.createdAt)}</span>} />
+            <Agent4Dashboard data={dash.data} />
+          </div>
         ) : dash ? (
           <RadarFrame src={`/api/share/${token}/radar`} title={dash.title} height="h-[calc(100dvh-110px)]" />
         ) : !bundle ? (

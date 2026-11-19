@@ -252,7 +252,7 @@ export function Shaderange({ shades, max = 10, size = 18 }: { shades: SwatchShad
           key={`${s.name}-${i}`}
           role="listitem"
           title={`${s.name}${s.hex ? ` · ${s.hex}` : ""}${s.family ? ` · ${s.family}` : ""}${s.available === false ? " · indisponible" : ""}${s.bestseller ? " · best-seller" : ""}`}
-          className={`inline-block rounded-full shadow-[inset_0_0_0_1px_rgb(19_35_63/0.12)] ${s.available === false ? "opacity-40" : ""}`}
+          className={`inline-block rounded-full shadow-[inset_0_0_0_1px_rgb(27_20_17/0.12)] ${s.available === false ? "opacity-40" : ""}`}
           style={{ width: size, height: size, background: s.hex ?? "#CCCCCC" }}
         />
       ))}

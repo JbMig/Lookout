@@ -45,7 +45,7 @@ function ProductCard({ p, years }: { p: CatalogItem; years: { prev: number | nul
             <tbody>
               {p.shades.map((s, i) => (
                 <tr key={i} className="border-t border-line-soft">
-                  <td className="py-1.5"><span className="mr-2 inline-block h-3.5 w-3.5 rounded-full align-[-2px] shadow-[inset_0_0_0_1px_rgb(19_35_63/0.12)]" style={{ background: s.hex ?? "#CCCCCC" }} aria-hidden />{s.name}</td>
+                  <td className="py-1.5"><span className="mr-2 inline-block h-3.5 w-3.5 rounded-full align-[-2px] shadow-[inset_0_0_0_1px_rgb(27_20_17/0.12)]" style={{ background: s.hex ?? "#CCCCCC" }} aria-hidden />{s.name}</td>
                   <td className="font-mono text-[12px] text-ink-soft">{s.hex ?? "—"}</td>
                   <td className="text-ink-soft">{s.family ?? "—"}</td>
                   <td>{s.available === undefined ? "—" : s.available ? "Oui" : <span className="text-ink-faint">Non</span>}</td>

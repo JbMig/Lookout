@@ -2,13 +2,13 @@
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { ItemView, ReportStats, ShadeFamily } from "@/lib/types";
 
-const US = "#13233F";
-const EU = "#F2A33A";
-const GRID = "#eef0f3";
-const TICK = { fontSize: 12, fill: "#6f7b8e" };
+const US = "#1b1411";
+const EU = "#a9471f";
+const GRID = "#efe7de";
+const TICK = { fontSize: 12, fill: "#7a6a5f" };
 const TOOLTIP = {
-  contentStyle: { borderRadius: 10, border: "1px solid #e4e6eb", boxShadow: "0 8px 20px -12px rgb(19 35 63 / .35)", fontSize: 13 },
-  cursor: { fill: "rgb(19 35 63 / 0.04)" },
+  contentStyle: { borderRadius: 10, border: "1px solid #e6dccf", boxShadow: "0 8px 20px -12px rgb(27 20 17 / .35)", fontSize: 13 },
+  cursor: { fill: "rgb(27 20 17 / 0.04)" },
 };
 
 /** Couleur de référence de chaque famille de teintes. */

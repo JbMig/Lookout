@@ -1,5 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import "@fontsource-variable/hanken-grotesk";
+import "@fontsource/cormorant-garamond/500.css";
+import "@fontsource/cormorant-garamond/600.css";
+import "@fontsource/cormorant-garamond/700.css";
 import "./globals.css";
 import { SessionProvider } from "@/components/Session";
 import { AppShell } from "@/components/AppShell";
@@ -9,7 +12,7 @@ export const metadata: Metadata = {
   description: "Ventes Circana, fiches produits du web, tendances sociales et votre catalogue, croisés dans un rapport sourcé.",
 };
 
-export const viewport: Viewport = { themeColor: "#13233f" };
+export const viewport: Viewport = { themeColor: "#1b1411" };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

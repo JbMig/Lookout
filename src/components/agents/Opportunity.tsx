@@ -15,17 +15,26 @@ export interface OpportunityRow {
   created_at: string;
 }
 
-export const kindLabel = (k: string) => KIND_LABEL[k as OpportunityKind] ?? k.replace(/_/g, " ");
+const MORE_KINDS: Record<string, string> = { prix: "Prix", format: "Format", teinte: "Teintes", ingredient_gap: "Ingrédient", segment_gap: "Segment", winner_to_benchmark: "Best-seller à suivre" };
+export const kindLabel = (k: string) => KIND_LABEL[k as OpportunityKind] ?? MORE_KINDS[k] ?? k.replace(/_/g, " ");
 
 export function priority(o: OpportunityRow): Priority {
   const p = o.estimated_impact?.priorite;
   return p === "haute" || p === "moyenne" || p === "basse" ? p : priorityOf(o.score);
 }
 
-export function confidence(o: OpportunityRow): number | null {
-  const c = Number(o.estimated_impact?.confiance ?? o.estimated_impact?.confidence);
-  return Number.isFinite(c) ? c : null;
+/** Confiance : nombre (0..1) du moteur intégré ou libellé (« elevee », « moyenne », « faible ») de l'agent. */
+export function confidence(o: OpportunityRow): string | null {
+  const raw = o.estimated_impact?.confiance ?? o.estimated_impact?.confidence;
+  if (typeof raw === "string" && raw.trim()) {
+    const n = Number(raw);
+    if (!Number.isFinite(n)) return raw.replace(/elevee/i, "élevée");
+  }
+  const n = Number(raw);
+  return raw !== null && raw !== undefined && Number.isFinite(n) ? `${Math.round(n * 100)} %` : null;
 }
+
+const text = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null);
 
 export const oppZone = (o: OpportunityRow) => (typeof o.refs?.zone === "string" ? o.refs.zone : null);
 
@@ -53,11 +62,13 @@ export function OpportunityCard({ o, names, links = true }: { o: OpportunityRow;
         <div className="flex flex-wrap items-center gap-2 text-[12.5px]">
           <span className="rounded-full bg-night px-2.5 py-0.5 font-medium text-white">{kindLabel(o.kind)}</span>
           <span className="inline-flex items-center gap-1.5 rounded-full border border-line px-2.5 py-0.5 font-medium"><i className={`h-2 w-2 rounded-full ${TONE[pr]}`} aria-hidden />Priorité {pr}</span>
-          {conf !== null && <span className="text-ink-faint">Confiance {Math.round(conf * 100)} %</span>}
+          {conf && <span className="text-ink-faint">Confiance {conf}</span>}
           {zone && <span className="text-ink-faint">· {ZONE_LABEL[zone] ?? zone}</span>}
         </div>
         <h3 className="mt-2 font-semibold leading-snug">{o.title}</h3>
         {o.description && <p className="mt-1 text-sm text-ink-soft">{o.description}</p>}
+        {text(o.estimated_impact?.recommandation) && <p className="mt-2 text-sm"><b className="font-medium">Recommandation :</b> {text(o.estimated_impact?.recommandation)}</p>}
+        {text(o.refs?.preuve) && <p className="mt-1 text-[12.5px] text-ink-faint">Preuve : {text(o.refs?.preuve)}</p>}
         {(client.length > 0 || rivals.length > 0) && (
           <div className="mt-3 space-y-1.5 text-[12.5px]">
             {client.length > 0 && <div className="flex flex-wrap items-center gap-1.5"><span className="text-ink-faint">Votre produit :</span>{client.map((id) => ref(id, `/catalog#p-${id}`))}</div>}

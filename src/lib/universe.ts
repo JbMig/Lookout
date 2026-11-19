@@ -146,7 +146,10 @@ export async function loadUniverse(): Promise<Universe> {
   for (const a of aliasRows) if (str(a.alias) && str(a.canonical)) aliases[strip(String(a.alias))] = strip(String(a.canonical));
 
   /* Ventes : un même produit (zone, format, année) importé par plusieurs fichiers n'est compté qu'une fois :
-     les lignes de l'import le plus récent gagnent (elles peuvent être au niveau teinte). */
+     les lignes de l'Agent 1 gagnent, puis l'import le plus récent (elles peuvent être au niveau teinte). */
+  // Les lignes écrites par l'Agent 1 (niveau SKU) passent avant celles des anciens imports du site.
+  const fromAgent = (r: Raw) => ((r.raw ?? {}) as Raw).niveau === "sku";
+  salesRows.sort((a, b) => Number(fromAgent(b)) - Number(fromAgent(a)));
   const owner = new Map<string, unknown>();
   const sales: SalesLine[] = [];
   let duplicatesRemoved = 0;

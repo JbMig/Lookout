@@ -18,7 +18,7 @@ function Competitor({ m }: { m: MarketItem }) {
         <p className="text-[12.5px] font-semibold uppercase tracking-[0.04em] text-ink-faint">{m.brand}</p>
         <h3 className="font-semibold leading-snug">{m.name}</h3>
         <p className="mt-1 text-[13px] text-ink-soft">{[formatLabel(m.format), m.texture, m.zone ? (m.country ?? ZONE_LABEL[m.zone]) : null].filter(Boolean).join(" · ")}</p>
-        <p className="mt-2 text-lg font-semibold tabular-nums">{money(m.price, m.currency)} <span className="text-[12.5px] font-normal text-ink-faint">{m.currency ?? ""}</span></p>
+        <p className="mt-2 text-lg font-semibold tabular-nums">{money(m.price, m.currency)}</p>
         <div className="mt-2 flex flex-wrap items-center gap-2"><TrendPill trend={m.trend} />{m.url && <a href={m.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[13px] font-medium underline-offset-4 hover:underline">{m.sourceSite ?? "Fiche"}<ExternalLink size={12} aria-hidden /></a>}</div>
       </div>
       <div className="min-w-0 space-y-3">

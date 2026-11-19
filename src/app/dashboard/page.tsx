@@ -6,9 +6,9 @@ import { ChevronRight, Link2 } from "lucide-react";
 import { api, fmtDate } from "@/lib/client";
 import { Private } from "@/components/Session";
 import { AgentButton, SettingsBanner } from "@/components/agents/kit";
-import { Card, Empty, ErrorText, PageHeader, Skeleton } from "@/components/ui";
+import { Card, Empty, ErrorText, PageHeader, Pill, Skeleton } from "@/components/ui";
 
-interface Item { id: string; title: string; createdAt: string; shared: boolean; kind: "agents" | "legacy" }
+interface Item { id: string; title: string; createdAt: string; status: string; shared: boolean; kind: "agents" | "legacy" }
 
 function Dashboards() {
   const router = useRouter();
@@ -23,7 +23,7 @@ function Dashboards() {
     <li key={i.id}>
       <Link href={href} className="press flex items-center justify-between gap-3 px-5 py-3.5 hover:bg-ground">
         <span className="min-w-0"><span className="block truncate font-medium">{i.title}</span><span className="text-[13px] text-ink-faint">{fmtDate(i.createdAt)}</span></span>
-        <span className="flex items-center gap-3 text-[13px] text-ink-faint">{i.shared && <span className="inline-flex items-center gap-1"><Link2 size={13} aria-hidden />partagé</span>}<ChevronRight size={16} aria-hidden /></span>
+        <span className="flex items-center gap-3 text-[13px] text-ink-faint">{i.status === "pending" && <Pill tone="wait">en cours</Pill>}{i.shared && <span className="inline-flex items-center gap-1"><Link2 size={13} aria-hidden />partagé</span>}<ChevronRight size={16} aria-hidden /></span>
       </Link>
     </li>
   );

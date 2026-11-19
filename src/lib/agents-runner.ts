@@ -13,10 +13,50 @@ import { NEEDS_SETTINGS, missingSettings } from "./settings-check";
 /**
  * Déclenchement des agents depuis les boutons du site.
  *   Agent 1 : Edge Function Supabase « import-circana » (lit le bucket circana-uploads).
- *   Agents 3 et 4 : moteur intégré (calcul depuis Supabase, écrit analyses / growth_opportunities / reports).
- *   Agents 0, 2, 2.5 : agents navigateur. Transmis à AGENT_WEBHOOK_URL si défini, sinon à H Company
- *   (HAI_API_KEY) avec les consignes de l'agent ; sans l'un ni l'autre, la demande est notée pour l'équipe.
+ *   Agents 3 et 4 : agents Holo (H Company) « agent-analyse-concurrentielle » et « bench-dashboard-creation »
+ *   dès que HAI_API_KEY est défini ; sans clé, moteur intégré (analyses / growth_opportunities / reports).
+ *   Agents 0, 2, 2.5 : transmis à AGENT_WEBHOOK_URL si défini, sinon à leur agent Holo ;
+ *   sans l'un ni l'autre, la demande est notée pour l'équipe.
  */
+
+/**
+ * Agent Holo de chaque étape (nom de l'agent créé chez H Company). Modifiable par variable d'environnement.
+ * Agents 0 et 2.5 : pas encore d'agent dédié ; à défaut, l'agent générique HAI_AGENT reçoit les consignes complètes.
+ */
+const HOLO: Partial<Record<AgentId, string>> = {
+  "0": process.env.HAI_AGENT_0 || "",
+  "2": process.env.HAI_AGENT_2 || "agent-enrichissement-csv",
+  "2.5": process.env.HAI_AGENT_2_5 || "",
+  "3": process.env.HAI_AGENT_3 || "agent-analyse-concurrentielle",
+  "4": process.env.HAI_AGENT_4 || "bench-dashboard-creation",
+};
+
+const zoneName = (z: string) => (z === "EU" ? "Europe" : z === "FR" ? "France" : "États-Unis");
+
+/** Paramètres transmis à un agent Holo dédié (ses consignes sont déjà enregistrées chez H Company). */
+function holoParams(cfg: AgentConfig, extra: string[] = []): string {
+  return [
+    `Paramètres : catégorie = ${cfg.category}, zone = ${zoneName(cfg.zone)}${cfg.brand ? `, marque cliente = ${cfg.brand}` : ""}.`,
+    ...extra,
+    "Ne demande rien à l'utilisateur.",
+  ].join("\n");
+}
+
+const SESSION: Partial<Record<AgentId, string>> = {
+  "2": "Tu es l'Agent 2 : enrichissement web des produits concurrents. Récupère les produits via get_top_competitors(), traite-les un par un jusqu'à ce qu'il n'en reste plus, délègue les couleurs au sous-agent Shade Color Expert, sauvegarde via l'Edge Function save-product et vérifie à la fin (0 ligne restante, aucune teinte sans hex ni image).",
+  "3": "Tu es l'Agent 3 : analyse concurrentielle. Lis catalog_products, market_products, market_shades, market_ingredients et circana_sales, compare prix, formats, teintes et ingrédients. Écris d'abord une ligne dans analyses, puis une ligne par opportunité dans growth_opportunities avec analysis_id renseigné. Termine par les 3 opportunités les plus intéressantes avec les chiffres.",
+};
+
+async function holoSession(name: string, message: string) {
+  const res = await fetch(`${config.hcompany.baseUrl}/sessions`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${config.hcompany.apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ agent: name, messages: message, max_time_s: Math.max(config.hcompany.maxTimeS, 1800) }),
+    signal: AbortSignal.timeout(30_000),
+  });
+  if (!res.ok) throw new Error(`H Company (${name}) ${res.status} : ${(await res.text().catch(() => "")).slice(0, 160)}`);
+  return (await res.json()) as { id: string; agent_view_url?: string };
+}
 
 const RUNS_KEY = "agent_runs";
 const MAX_RUNS = 120;
@@ -77,15 +117,9 @@ async function external(agent: AgentId, cfg: AgentConfig, params: Record<string,
     return { status: "started", via: "webhook", message: "Transmis à l'agent. Les résultats apparaîtront ici dès qu'il les enregistre.", link: null };
   }
   if (!isDemo.hcompany) {
-    const res = await fetch(`${config.hcompany.baseUrl}/sessions`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${config.hcompany.apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ agent: config.hcompany.agent, messages: task, max_time_s: Math.max(config.hcompany.maxTimeS, 1800) }),
-      signal: AbortSignal.timeout(30_000),
-    });
-    if (!res.ok) throw new Error(`H Company ${res.status} : ${(await res.text().catch(() => "")).slice(0, 160)}`);
-    const s = (await res.json()) as { id: string; agent_view_url?: string };
-    return { status: "started", via: "h-company", message: `Session H Company ${s.id} lancée.`, link: s.agent_view_url ?? null };
+    const name = HOLO[agent];
+    const s = name ? await holoSession(name, holoParams(cfg, SESSION[agent] ? [SESSION[agent]!] : [])) : await holoSession(config.hcompany.agent, task);
+    return { status: "started", via: "h-company", message: `Agent Holo ${name || config.hcompany.agent} lancé (session ${s.id}).`, link: s.agent_view_url ?? null };
   }
   return {
     status: "requested",
@@ -150,6 +184,43 @@ async function dashboard(cfg: AgentConfig, userId: string | null, params: Record
   return { status: "completed" as const, via: "integre" as const, message: "Dashboard généré.", link: `/dashboard/${report.id}` };
 }
 
+/** Agent 3 Holo : il écrit lui-même analyses et growth_opportunities ; la page Analyse les affiche dès qu'ils arrivent. */
+async function analyseHolo(cfg: AgentConfig) {
+  const s = await holoSession(HOLO["3"]!, holoParams(cfg, [SESSION["3"]!]));
+  return { status: "started" as const, via: "h-company" as const, message: `Agent Holo ${HOLO["3"]} lancé (session ${s.id}). Les résultats apparaîtront dans Analyse et Opportunités.`, link: s.agent_view_url ?? null };
+}
+
+/**
+ * Agent 4 Holo : le site prépare la ligne reports (share_slug imposé) ; l'agent la complète avec save-report,
+ * qui fait un upsert sur share_slug. La page du dashboard attend le JSON puis l'affiche.
+ */
+async function dashboardHolo(cfg: AgentConfig, userId: string | null) {
+  const day = new Date().toISOString().slice(0, 10);
+  const cat = (cfg.category || "categorie").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  const slug = `${cat}-benchmark-${day}-${randomUUID().slice(0, 6)}`;
+  const [report] = await repo().insert<{ id: string }>("reports", [{
+    title: `${cfg.category} — Benchmark${cfg.brand ? ` · ${cfg.brand}` : ""}`,
+    type: "dashboard",
+    status: "generating",
+    config: { kind: "holo", agent: "4", category: cfg.category, zone: cfg.zone, brand: cfg.brand },
+    data: {},
+    share_slug: slug,
+    created_by: userId,
+  } as never]);
+  try {
+    const country = cfg.zone === "US" ? "US" : cfg.zone === "FR" ? "FR" : "global";
+    const s = await holoSession(HOLO["4"]!, holoParams(cfg, [
+      `Tu es l'Agent 4 : génération du rapport JSON. category = ${cfg.category}, country = ${country}, period = FY 2025 vs FY 2024${cfg.brand ? `, brand = ${cfg.brand}` : ""}.`,
+      `Sauvegarde dans reports via l'Edge Function save-report (GET avec ?p=) en utilisant OBLIGATOIREMENT share_slug = "${slug}" pour chaque appel.`,
+      "Retourne l'id du rapport, le share_slug et le JSON complet.",
+    ]));
+    return { status: "started" as const, via: "h-company" as const, message: `Agent Holo ${HOLO["4"]} lancé (session ${s.id}). Le dashboard s'affichera dès que l'agent l'aura enregistré.`, link: `/dashboard/${report.id}` };
+  } catch (e) {
+    await repo().remove("reports", report.id).catch(() => undefined);
+    throw e;
+  }
+}
+
 export async function runAgent(agent: AgentId, params: Record<string, unknown>, user: { userId: string; email: string } | null): Promise<AgentRun> {
   const cfg = await getAgentConfig();
   const missing = NEEDS_SETTINGS.includes(agent) ? missingSettings(cfg) : [];
@@ -169,8 +240,8 @@ export async function runAgent(agent: AgentId, params: Record<string, unknown>, 
   try {
     const out =
       agent === "1" ? await importCircana(params)
-      : agent === "3" ? await analyse(cfg)
-      : agent === "4" ? await dashboard(cfg, user?.userId ?? null, params)
+      : agent === "3" ? (isDemo.hcompany ? await analyse(cfg) : await analyseHolo(cfg))
+      : agent === "4" ? (isDemo.hcompany ? await dashboard(cfg, user?.userId ?? null, params) : await dashboardHolo(cfg, user?.userId ?? null))
       : await external(agent, cfg, params);
     return saveRun({ ...base, ...out, finishedAt: out.status === "completed" ? new Date().toISOString() : null });
   } catch (e) {

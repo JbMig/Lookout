@@ -15,7 +15,7 @@ export const GET = handle(async () => {
       id: r.id,
       title: r.title,
       createdAt: r.created_at,
-      status: isHoloDashboard(r) && !isAgent4Data(r.data) ? "pending" : r.status,
+      status: isHoloDashboard(r) && !isAgent4Data(r.data) && r.status !== "failed" ? "pending" : r.status,
       shared: Boolean(r.share_slug),
       kind: isAgentDashboard(r) ? "agents" : "legacy",
     })),

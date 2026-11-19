@@ -155,4 +155,8 @@ JSON :
   note l'analysis_id renvoyé, puis envoie les suivantes avec { "analysis_id": "<id>", "opportunites": [...] }.
 - Succès uniquement si la réponse contient "ok": true. Si "rejetees" n'est pas vide, corrige ces
   opportunités et renvoie-les avec l'analysis_id.
+- refs.produit_client_ids et refs.produit_concurrent_ids : recopie les id EXACTEMENT tels que lus dans
+  catalog_products.id et market_products.id (36 caractères, format 8-4-4-4-12). Un id mal recopié est retiré
+  par save-analysis (champ ids_ignores de la réponse) : si ids_ignores n'est pas vide, relis les id et
+  renvoie les opportunités concernées corrigées.
 - Ne donne ta réponse finale qu'après l'enregistrement réussi, avec l'analysis_id.

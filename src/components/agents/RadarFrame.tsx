@@ -37,7 +37,7 @@ export function RadarActions({ id, shareSlug }: { id: string; shareSlug: string 
   };
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <button type="button" onClick={share} disabled={busy} className={btnSecondary}>
+      <button type="button" onClick={share} disabled={busy} title="Copie un lien en lecture seule, réservé aux comptes Lookout" className={btnSecondary}>
         {busy ? <Loader2 size={15} className="animate-spin" aria-hidden /> : copied ? <Check size={15} aria-hidden /> : <Link2 size={15} aria-hidden />}
         {copied ? "Lien copié" : "Partager"}
       </button>

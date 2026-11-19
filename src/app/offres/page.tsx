@@ -40,6 +40,7 @@ export default function OffersPage() {
           </section>
         ))}
       </div>
+      <p className="mt-12 text-center text-[13px] text-ink-faint"><Link href="/mentions-legales" className="hover:text-ink hover:underline">Mentions légales</Link></p>
     </div>
     </>
   );

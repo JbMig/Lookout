@@ -9,7 +9,7 @@ import { Empty, PageHeader, PageSkeleton } from "@/components/ui";
 import { RadarFrame } from "@/components/agents/RadarFrame";
 import type { DashboardMeta } from "@/lib/dashboards";
 
-/** Rapport partagé : lecture seule, sans compte. */
+/** Rapport partagé : lecture seule, réservée aux comptes Lookout. */
 export default function SharedReportPage() {
   const { token } = useParams<{ token: string }>();
   const [bundle, setBundle] = useState<Bundle | null>(null);
@@ -22,7 +22,7 @@ export default function SharedReportPage() {
 
   return (
     <>
-      <PublicTop><Eye size={15} aria-hidden />{dash ? "Dashboard partagé" : "Rapport partagé"} en lecture seule</PublicTop>
+      <PublicTop><Eye size={15} aria-hidden />{dash ? "Dashboard partagé" : "Rapport partagé"} en lecture seule · réservé aux comptes Lookout</PublicTop>
       <div className="mx-auto w-full max-w-[1320px] px-5 py-7 sm:px-8 lg:px-10">
         {error ? (
           <Empty title="Ce rapport n'est plus partagé">{error}</Empty>

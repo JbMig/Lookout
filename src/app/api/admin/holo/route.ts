@@ -23,3 +23,20 @@ export const GET = handle(async () => {
   }));
   return { agents };
 });
+
+/** Équipe : met à jour les consignes d'un agent Holo (PATCH chez H Company). Réservé aux agents Lookout listés. */
+export const PATCH = handle(async (req: Request) => {
+  await requireStaff();
+  const { name, instructions } = (await req.json()) as { name?: string; instructions?: string };
+  if (!name || !AGENTS.includes(name)) throw new Error("Agent inconnu");
+  if (!instructions || instructions.length < 200) throw new Error("Consignes manquantes");
+  const res = await fetch(`${config.hcompany.baseUrl}/agents/${encodeURIComponent(name)}`, {
+    method: "PATCH",
+    headers: { Authorization: `Bearer ${config.hcompany.apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ instructions }),
+    signal: AbortSignal.timeout(15_000),
+  });
+  const text = await res.text();
+  if (!res.ok) throw new Error(`H Company ${res.status} : ${text.slice(0, 300)}`);
+  return { ok: true, name, length: instructions.length };
+});

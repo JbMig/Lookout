@@ -64,7 +64,7 @@ describe("Agent 3 intégré", () => {
   const u: Universe = {
     config: { brand: "Lancome", zone: "US", category: "blush", formats: ["liquide"], startUrl: "" },
     years: { prev: 2024, cur: 2025 }, catalog, market, sales,
-    enrichment: { total: 0, done: 0, queued: 0, failed: 0, running: 0 }, duplicatesRemoved: 0, generatedAt: "",
+    enrichment: { total: 0, done: 0, queued: 0, failed: 0, running: 0 }, duplicatesRemoved: 0, generatedAt: "", marketTotals: [], salesSource: "top50",
   };
 
   it("trouve les écarts de prix, de teintes, de formats et d'ingrédients", () => {

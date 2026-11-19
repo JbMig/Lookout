@@ -28,7 +28,23 @@ export type Table =
   | "trend_signals"
   | "sites"
   | "app_settings"
-  | "brand_aliases";
+  | "brand_aliases"
+  | CircanaTable;
+
+/** Tables Circana écrites par l'Agent 1 (une table par zone et format, plus une table marché par format). */
+export const CIRCANA_TOP50 = (["us", "fr"] as const).flatMap((z) =>
+  (["liquid", "compact", "creme", "stick"] as const).map((f) => `circana_top50_sku_${z}_${f}` as const),
+);
+export const CIRCANA_MARKET = (["liquid", "compact", "creme", "stick"] as const).map((f) => `circana_${f}_blush` as const);
+export type CircanaTable = (typeof CIRCANA_TOP50)[number] | (typeof CIRCANA_MARKET)[number];
+
+/**
+ * Tables qui peuvent ne plus exister dans Supabase (enrichment_jobs a été retirée le 19/11/2026) :
+ * lecture vide, écritures ignorées, au lieu de faire échouer toute la page.
+ */
+const OPTIONAL: Table[] = ["enrichment_jobs", "brand_aliases", ...CIRCANA_TOP50, ...CIRCANA_MARKET];
+const missingTable = (table: Table, error: { message: string; code?: string }) =>
+  OPTIONAL.includes(table) && (error.code === "PGRST205" || error.code === "42P01" || /could not find the table|does not exist/i.test(error.message));
 
 type Row = Record<string, unknown> & { id: string };
 
@@ -67,38 +83,46 @@ class SupabaseRepo implements Repo {
     if (q.offset !== undefined && q.limit) req = req.range(q.offset, q.offset + q.limit - 1);
     else if (q.limit) req = req.limit(q.limit);
     const { data, error } = await req;
+    if (error && missingTable(table, error)) return [];
     if (error) throw new Error(`${table}: ${error.message}`);
     return (data ?? []) as T[];
   }
   async get<T>(table: Table, id: string) {
     const { data, error } = await this.sb.from(table).select("*").eq("id", id).maybeSingle();
+    if (error && missingTable(table, error)) return null;
     if (error) throw new Error(`${table}: ${error.message}`);
     return (data as T) ?? null;
   }
   async insert<T>(table: Table, rows: Partial<T>[]) {
     if (!rows.length) return [];
     const { data, error } = await this.sb.from(table).insert(rows as Record<string, unknown>[]).select("*");
+    // Table absente : on renvoie les lignes avec un identifiant local pour que l'appelant continue (rien n'est enregistré).
+    if (error && missingTable(table, error)) return rows.map((r) => ({ id: crypto.randomUUID(), ...r })) as T[];
     if (error) throw new Error(`${table}: ${error.message}`);
     return (data ?? []) as T[];
   }
   async update(table: Table, id: string, patch: Record<string, unknown>) {
     const { error } = await this.sb.from(table).update(patch).eq("id", id);
+    if (error && missingTable(table, error)) return;
     if (error) throw new Error(`${table}: ${error.message}`);
   }
   async updateWhere(table: Table, eq: Record<string, unknown>, patch: Record<string, unknown>) {
     let req = this.sb.from(table).update(patch);
     for (const [k, v] of Object.entries(eq)) req = req.eq(k, v as string);
     const { error } = await req;
+    if (error && missingTable(table, error)) return;
     if (error) throw new Error(`${table}: ${error.message}`);
   }
   async remove(table: Table, id: string) {
     const { error } = await this.sb.from(table).delete().eq("id", id);
+    if (error && missingTable(table, error)) return;
     if (error) throw new Error(`${table}: ${error.message}`);
   }
   async removeWhere(table: Table, eq: Record<string, unknown>) {
     let req = this.sb.from(table).delete();
     for (const [k, v] of Object.entries(eq)) req = req.eq(k, v as string);
     const { error } = await req;
+    if (error && missingTable(table, error)) return;
     if (error) throw new Error(`${table}: ${error.message}`);
   }
 }

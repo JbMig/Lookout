@@ -2,6 +2,7 @@ import { z } from "zod";
 import { body, handle } from "@/lib/http";
 import { requireUser } from "@/lib/auth";
 import { dashboardPrisme, sujetsDisponibles } from "@/lib/prisme-dashboard";
+import { enregistrerAnalyse } from "@/lib/prisme-historique";
 
 /** Prisme enchaîne plusieurs appels LLM et lectures Supabase. */
 export const maxDuration = 300;
@@ -18,7 +19,13 @@ const Body = z.object({
 });
 
 export const POST = handle(async (req: Request) => {
-  await requireUser();
+  const user = await requireUser();
   const { sujet, question, pays } = Body.parse(await body(req));
-  return dashboardPrisme(sujet, question, pays);
+  const d = await dashboardPrisme(sujet, question, pays);
+  // Chaque recherche est gardée dans « Social listening » ; un échec d'enregistrement n'empêche pas d'afficher le résultat.
+  const analyse_id = await enregistrerAnalyse(d, { question, pays, userId: user.userId, email: user.email }).catch((e) => {
+    console.error("Prisme : enregistrement impossible", e);
+    return null;
+  });
+  return { ...d, analyse_id };
 });

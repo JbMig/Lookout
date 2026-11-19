@@ -6,18 +6,18 @@ import { ReportView, type Bundle } from "@/components/report/ReportView";
 import { Eye } from "lucide-react";
 import { PublicTop } from "@/components/PublicTop";
 import { Empty, PageHeader, PageSkeleton } from "@/components/ui";
-import { DashboardView } from "@/components/agents/DashboardView";
-import type { DashboardBundle } from "@/lib/dashboards";
+import { RadarFrame } from "@/components/agents/RadarFrame";
+import type { DashboardMeta } from "@/lib/dashboards";
 
 /** Rapport partagé : lecture seule, sans compte. */
 export default function SharedReportPage() {
   const { token } = useParams<{ token: string }>();
   const [bundle, setBundle] = useState<Bundle | null>(null);
-  const [dash, setDash] = useState<DashboardBundle | null>(null);
+  const [dash, setDash] = useState<DashboardMeta | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api<Bundle | (DashboardBundle & { kind: "agents" })>(`/api/share/${token}`).then((r) => ("kind" in r && r.kind === "agents" ? setDash(r) : setBundle(r as Bundle))).catch((e) => setError(e.message));
+    api<Bundle | (DashboardMeta & { kind: "agents" })>(`/api/share/${token}`).then((r) => ("kind" in r && r.kind === "agents" ? setDash(r) : setBundle(r as Bundle))).catch((e) => setError(e.message));
   }, [token]);
 
   return (
@@ -27,10 +27,7 @@ export default function SharedReportPage() {
         {error ? (
           <Empty title="Ce rapport n'est plus partagé">{error}</Empty>
         ) : dash ? (
-          <div className="space-y-6">
-            <PageHeader title={dash.report.title} meta={<span>{[dash.report.config.brand as string, dash.report.config.category as string, fmtDate(dash.report.createdAt)].filter(Boolean).join(" · ")}</span>} />
-            <DashboardView bundle={dash} publicView />
-          </div>
+          <RadarFrame src={`/api/share/${token}/radar`} title={dash.title} height="h-[calc(100dvh-110px)]" />
         ) : !bundle ? (
           <PageSkeleton />
         ) : (

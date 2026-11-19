@@ -6,6 +6,7 @@ import type { OpportunityRow } from "@/components/agents/Opportunity";
 import { Delta } from "@/components/ui";
 import { ZONE_LABEL, formatLabel } from "@/lib/normalize";
 import type { GrowthAnalysis } from "@/lib/growth";
+import { parseSynthesis } from "@/lib/synthesis";
 
 export interface AnalysisSummary {
   id: string;
@@ -90,3 +91,39 @@ export function IngredientsList({ a }: { a: GrowthAnalysis }) {
   );
 }
 
+
+/** Synthèse lisible : phrase d'ouverture, périmètre, constats numérotés, remarques. */
+export function SynthesisCard({ text, date, meta, opportunities, high }: { text: string; date: string; meta: string[]; opportunities: number; high: number }) {
+  const p = parseSynthesis(text);
+  return (
+    <section className="rounded-[14px] border border-line bg-paper p-5 sm:p-6" aria-labelledby="synthese-title">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <h2 id="synthese-title" className="text-base font-semibold">Synthèse</h2>
+        <p className="text-[13px] text-ink-faint">{[`Analyse du ${date}`, ...meta].join(" · ")}</p>
+      </div>
+      {p.lead && <p className="mt-3 max-w-[70ch] text-[17px] font-medium leading-snug tracking-[-0.01em]">{p.lead}</p>}
+      {p.scope && <p className="mt-2 max-w-[80ch] text-[13.5px] text-ink-soft"><span className="font-medium text-ink">Périmètre : </span>{p.scope}</p>}
+      <div className="mt-4 flex flex-wrap gap-2 text-[12.5px]">
+        {p.findings.length > 0 && <span className="rounded-full bg-ground px-2.5 py-1 font-medium">{p.findings.length} constat{p.findings.length > 1 ? "s" : ""}</span>}
+        {opportunities > 0 && <span className="rounded-full bg-ground px-2.5 py-1 font-medium">{opportunities} opportunité{opportunities > 1 ? "s" : ""}</span>}
+        {high > 0 && <span className="inline-flex items-center gap-1.5 rounded-full bg-ground px-2.5 py-1 font-medium"><i className="h-2 w-2 rounded-full bg-bad" aria-hidden />{high} de priorité haute</span>}
+      </div>
+      {p.findings.length > 0 && (
+        <ol className="mt-5 space-y-3">
+          {p.findings.map((f, i) => (
+            <li key={i} className="grid grid-cols-[28px_minmax(0,1fr)] items-start gap-3">
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-night text-[13px] font-semibold tabular-nums text-white" aria-hidden>{i + 1}</span>
+              <p className="max-w-[85ch] pt-0.5 text-[15px] leading-relaxed">{f}</p>
+            </li>
+          ))}
+        </ol>
+      )}
+      {p.notes.length > 0 && (
+        <div className="mt-5 rounded-[10px] bg-ground px-4 py-3">
+          <p className="text-[12.5px] font-semibold uppercase tracking-[0.04em] text-ink-faint">À noter</p>
+          <ul className="mt-1.5 space-y-1 text-[14px] text-ink-soft">{p.notes.map((n, i) => <li key={i}>{n}</li>)}</ul>
+        </div>
+      )}
+    </section>
+  );
+}

@@ -7,6 +7,7 @@ import { Private } from "@/components/Session";
 import { ArrowLeft } from "lucide-react";
 import { Card, CardHead, Empty, ErrorText, PageHeader, PageSkeleton, Pill } from "@/components/ui";
 import { SocialChart } from "@/components/social/SocialChart";
+import { PrismePanel } from "@/components/social/PrismePanel";
 import type { Analyse, Insight, ScoreMarque, Veille } from "@/lib/social";
 
 interface Detail { veille: Veille; analyse: Analyse | null; insights: Insight[]; scores: ScoreMarque[] }
@@ -44,6 +45,8 @@ function VeilleView() {
           <Pill tone={v.statut === "termine" ? "ok" : v.statut === "en_cours" ? "wait" : v.statut === "echec" ? "bad" : "neutral"}>{v.statut === "en_cours" ? `En cours${v.etape ? ` · ${v.etape}` : ""}` : { termine: "Terminée", partiel: "Partielle", echec: "Échec" }[v.statut] ?? v.statut}</Pill>
         </>}
       />
+
+      {v.statut !== "en_cours" && v.statut !== "echec" && <PrismePanel veilleId={v.id} />}
 
       {v.statut === "en_cours" && !a && <Empty title="Veille en cours">Collecte et analyse en arrière-plan. Cette page se met à jour toute seule.</Empty>}
 

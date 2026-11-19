@@ -21,6 +21,10 @@ export const GET = handle(async (req: Request) => {
       result: a.type === "growth_analysis" ? a.result : null,
     })),
     latestId: latest?.id ?? null,
-    opportunities: opportunities.map((o) => ({ ...o, score: Number(o.score) })),
+    // L'Agent 3 externe note sur 10, le moteur intégré sur 1 : tout est ramené entre 0 et 1.
+    opportunities: opportunities.map((o) => {
+      const s = Number(o.score) || 0;
+      return { ...o, score: Math.max(0, Math.min(1, s > 1 ? s / 10 : s)) };
+    }),
   };
 });

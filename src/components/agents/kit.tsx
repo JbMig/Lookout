@@ -309,10 +309,15 @@ export function useUniverse() {
 export function useHashScroll(ready: boolean) {
   useEffect(() => {
     if (!ready || !window.location.hash) return;
-    const el = document.getElementById(decodeURIComponent(window.location.hash.slice(1)));
-    if (!el) return;
-    el.scrollIntoView({ block: "start" });
-    el.classList.add("ring-2", "ring-amber", "rounded-[14px]");
+    // Plusieurs essais : la navigation peut remettre la page en haut juste après le premier rendu.
+    const go = () => {
+      const el = document.getElementById(decodeURIComponent(window.location.hash.slice(1)));
+      if (!el) return;
+      el.scrollIntoView({ block: "start" });
+      el.classList.add("ring-2", "ring-amber", "rounded-[14px]");
+    };
+    const timers = [0, 250, 800].map((ms) => setTimeout(go, ms));
+    return () => timers.forEach(clearTimeout);
   }, [ready]);
 }
 

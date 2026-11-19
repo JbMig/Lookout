@@ -1,11 +1,13 @@
 import { z } from "zod";
 import { body, handle } from "@/lib/http";
 import { requireUser } from "@/lib/auth";
-import { lancerVeille, listVeilles } from "@/lib/social";
+import { lancerVeille } from "@/lib/social";
+import { listerAnalyses } from "@/lib/prisme-historique";
 
+/** Historique des analyses Prisme. */
 export const GET = handle(async () => {
   await requireUser();
-  return { veilles: await listVeilles() };
+  return { analyses: await listerAnalyses() };
 });
 
 const Body = z.object({

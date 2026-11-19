@@ -1,8 +1,9 @@
 "use client";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/client";
 import { Private } from "@/components/Session";
-import { Search, Sparkles } from "lucide-react";
+import { ArrowRight, History, Search, Sparkles } from "lucide-react";
 import { ErrorText, PageHeader, Skeleton } from "@/components/ui";
 import { PrismeDashboard } from "@/components/prisme/PrismeDashboard";
 import { ReseauxMarques } from "@/components/prisme/ReseauxMarques";
@@ -17,7 +18,7 @@ function Prisme() {
   const [sujet, setSujet] = useState("");
   const [question, setQuestion] = useState("");
   const [sujets, setSujets] = useState<string[]>([]);
-  const [d, setD] = useState<DashboardPrisme | null>(null);
+  const [d, setD] = useState<(DashboardPrisme & { analyse_id?: string | null }) | null>(null);
   const [busy, setBusy] = useState(false);
   const [etape, setEtape] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -35,6 +36,16 @@ function Prisme() {
   }
 
   useEffect(() => { api<{ sujets: string[] }>("/api/prisme").then((r) => setSujets(r.sujets)).catch(() => null); }, []);
+  // « Relancer avec Prisme » depuis l'historique : le formulaire est prérempli.
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    const t = setTimeout(() => {
+      if (q.get("sujet")) setSujet(q.get("sujet")!);
+      if (q.get("pays")) setPays(q.get("pays")!);
+      if (q.get("question")) setQuestion(q.get("question")!);
+    }, 0);
+    return () => clearTimeout(t);
+  }, []);
   useEffect(() => {
     if (!busy) return;
     const t = setInterval(() => setEtape((e) => Math.min(e + 1, ETAPES.length - 1)), 5000);
@@ -46,7 +57,7 @@ function Prisme() {
     if (s.trim().length < 2) return;
     setSujet(s); setEtape(0); setBusy(true); setError(null); setD(null);
     try {
-      setD(await api<DashboardPrisme>("/api/prisme", { method: "POST", json: { sujet: s, question: question || undefined, pays } }));
+      setD(await api<DashboardPrisme & { analyse_id?: string | null }>("/api/prisme", { method: "POST", json: { sujet: s, question: question || undefined, pays } }));
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -56,7 +67,7 @@ function Prisme() {
 
   return (
     <div className="w-full min-w-0 space-y-6 [contain:inline-size]">
-      <PageHeader title="Prisme" meta={<span>L&apos;agent analyste du social listening : tapez ce que vous cherchez, il construit le dashboard.</span>} />
+      <PageHeader title="Prisme" meta={<span>L&apos;agent analyste du social listening : tapez ce que vous cherchez, il construit le dashboard. Chaque analyse est gardée dans Social listening.</span>} />
       <div className="flex max-w-full overflow-x-auto rounded-full border border-line bg-paper p-1 sm:inline-flex" role="tablist">
         <button role="tab" aria-selected={onglet === "sujet"} onClick={() => setOnglet("sujet")} className={`press shrink-0 whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium ${onglet === "sujet" ? "bg-[#1b1411] text-white" : "text-ink-soft"}`}>Analyse d&apos;un sujet</button>
         <button role="tab" aria-selected={onglet === "alertes"} onClick={ouvrirAlertes} className={`press shrink-0 whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium ${onglet === "alertes" ? "bg-[#1b1411] text-white" : "text-ink-soft"}`}>Alertes</button>
@@ -99,6 +110,16 @@ function Prisme() {
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-24" />)}</div>
           <div className="grid gap-5 lg:grid-cols-2"><Skeleton className="h-72" /><Skeleton className="h-72" /></div>
         </div>
+      )}
+      {d && (
+        <p className="flex flex-wrap items-center gap-2 rounded-[12px] border border-line bg-paper px-4 py-2.5 text-sm" role="status">
+          <History size={15} className="text-ink-faint" aria-hidden />
+          {d.analyse_id ? (
+            <>Analyse enregistrée dans l&apos;historique Social listening.<Link href={`/social/${d.analyse_id}`} className="inline-flex items-center gap-1 font-medium underline-offset-4 hover:underline">La retrouver<ArrowRight size={13} aria-hidden /></Link></>
+          ) : (
+            <span className="text-ink-soft">Cette analyse n&apos;a pas pu être enregistrée dans l&apos;historique.</span>
+          )}
+        </p>
       )}
       {d && <PrismeDashboard d={d} />}
       </>}

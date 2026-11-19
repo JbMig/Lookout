@@ -89,9 +89,9 @@ function LoginForm() {
   return (
     <div className="grid min-h-screen lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]">
       <aside className="relative flex flex-col justify-between overflow-hidden bg-night px-8 py-8 text-white sm:px-12 lg:py-12">
-        <span className="inline-flex self-start rounded-[12px] bg-paper px-4 py-3"><Logo className="h-10 w-auto" /></span>
+        <span className="inline-flex self-start"><Logo clair className="h-28 w-auto" /></span>
         <div className="my-12 max-w-lg lg:my-0">
-          <p className="text-[40px] font-semibold leading-[1.05] tracking-[-0.03em] text-balance sm:text-[52px]">La veille qui ne dort jamais.</p>
+          <p className="font-display text-[46px] font-semibold leading-[1] text-balance sm:text-[62px]">La veille qui ne dort jamais.</p>
           <p className="mt-5 max-w-md text-[17px] leading-relaxed text-night-text">
             Vos ventes Circana croisées avec chaque fiche produit du web : prix, composition, formats et teintes, sourcés et partageables.
           </p>

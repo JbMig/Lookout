@@ -23,7 +23,7 @@ export function PageHeader({ title, meta, actions }: { title: React.ReactNode; m
   return (
     <div className="flex flex-wrap items-start justify-between gap-4">
       <div className="min-w-0">
-        <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em] text-balance">{title}</h1>
+        <h1 className="text-[36px] font-semibold leading-[1.05] text-balance">{title}</h1>
         {meta && <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-ink-soft">{meta}</div>}
       </div>
       {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
@@ -43,15 +43,15 @@ export function Field({ label, hint, children }: { label: string; hint?: string;
 
 /** Champ sans largeur imposée (filtres en ligne). */
 export const controlCls =
-  "rounded-[10px] border border-line bg-paper px-3 py-2 text-sm placeholder:text-ink-faint transition-[border-color,box-shadow] duration-150 hover:border-[#cfd4dc] focus:border-night focus:outline-none focus:ring-3 focus:ring-night/10";
+  "rounded-[10px] border border-line bg-paper px-3 py-2 text-sm placeholder:text-ink-faint transition-[border-color,box-shadow] duration-150 hover:border-[#d9cdbf] focus:border-night focus:outline-none focus:ring-3 focus:ring-night/10";
 
 export const inputCls =
-  "mt-1.5 w-full rounded-[10px] border border-line bg-paper px-3 py-2 text-sm placeholder:text-ink-faint transition-[border-color,box-shadow] duration-150 hover:border-[#cfd4dc] focus:border-night focus:outline-none focus:ring-3 focus:ring-night/10";
+  "mt-1.5 w-full rounded-[10px] border border-line bg-paper px-3 py-2 text-sm placeholder:text-ink-faint transition-[border-color,box-shadow] duration-150 hover:border-[#d9cdbf] focus:border-night focus:outline-none focus:ring-3 focus:ring-night/10";
 
 const btnBase = "press inline-flex items-center justify-center gap-2 rounded-[10px] px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-55";
 export const btnPrimary = `${btnBase} bg-night text-white hover:bg-night-2`;
-export const btnSecondary = `${btnBase} border border-line bg-paper text-ink hover:border-[#cfd4dc] hover:shadow-[0_2px_6px_rgb(19_35_63/0.07)]`;
-export const btnAccent = `${btnBase} bg-amber text-night hover:bg-[#f5b257]`;
+export const btnSecondary = `${btnBase} border border-line bg-paper text-ink hover:border-[#d9cdbf] hover:shadow-[0_2px_6px_rgb(27_20_17/0.07)]`;
+export const btnAccent = `${btnBase} bg-terracotta text-white hover:bg-[#8f3b19]`;
 export const btnDanger = `${btnBase} border border-line bg-paper text-bad hover:border-bad/40`;
 
 export function ErrorText({ children }: { children: React.ReactNode }) {
@@ -92,14 +92,14 @@ export function ShadeStrip({ shades, width = 200, height = 26, pending }: { shad
     return (
       <div
         className="flex items-center justify-center rounded-md text-[11.5px] text-ink-faint"
-        style={{ width, height, background: "repeating-linear-gradient(135deg, #eef0f3 0 6px, #f8f9fa 6px 12px)" }}
+        style={{ width, height, background: "repeating-linear-gradient(135deg, #efe7de 0 6px, #faf6f1 6px 12px)" }}
       >
         {pending ?? "Aucune teinte"}
       </div>
     );
   }
   return (
-    <div className="shade-strip flex overflow-hidden rounded-md shadow-[inset_0_0_0_1px_rgb(19_35_63/0.06)]" style={{ width, height }} role="img" aria-label={`${shades.length} teinte${shades.length > 1 ? "s" : ""} : ${shades.map((s) => s.name).join(", ")}`}>
+    <div className="shade-strip flex overflow-hidden rounded-md shadow-[inset_0_0_0_1px_rgb(27_20_17/0.06)]" style={{ width, height }} role="img" aria-label={`${shades.length} teinte${shades.length > 1 ? "s" : ""} : ${shades.map((s) => s.name).join(", ")}`}>
       {shades.slice(0, 40).map((s, i) => (
         <i key={i} title={`${s.name}${s.family ? ` · ${s.family}` : ""}`} style={{ background: s.hex ?? "#d9dde3" }} />
       ))}
@@ -121,7 +121,7 @@ export function Pill({ tone = "neutral", children }: { tone?: "neutral" | "wait"
 /** État vide qui dit quoi faire. */
 export function Empty({ title, children, action }: { title: string; children?: React.ReactNode; action?: React.ReactNode }) {
   return (
-    <div className="rounded-[14px] border border-dashed border-[#d5d9e0] bg-paper px-6 py-10 text-center">
+    <div className="rounded-[14px] border border-dashed border-[#ddd2c5] bg-paper px-6 py-10 text-center">
       <p className="font-semibold">{title}</p>
       {children && <p className="mx-auto mt-1 max-w-md text-sm text-ink-soft">{children}</p>}
       {action && <div className="mt-4">{action}</div>}

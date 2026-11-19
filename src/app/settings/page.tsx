@@ -83,7 +83,7 @@ function Settings() {
               {FORMAT_CHOICES.map((f) => {
                 const on = cfg.formats.includes(f.id);
                 return (
-                  <label key={f.id} className={`press flex cursor-pointer items-center gap-2 rounded-[10px] border px-3.5 py-2 text-sm font-medium ${on ? "border-night bg-night text-white" : "border-line bg-paper hover:border-[#cfd4dc]"}`}>
+                  <label key={f.id} className={`press flex cursor-pointer items-center gap-2 rounded-[10px] border px-3.5 py-2 text-sm font-medium ${on ? "border-night bg-night text-white" : "border-line bg-paper hover:border-[#d9cdbf]"}`}>
                     <input type="checkbox" className="sr-only" checked={on} onChange={() => set({ formats: on ? cfg.formats.filter((x) => x !== f.id) : [...cfg.formats, f.id] })} />
                     {on && <Check size={14} aria-hidden />}{f.label}
                   </label>

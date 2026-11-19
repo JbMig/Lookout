@@ -60,7 +60,7 @@ function Import() {
             onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
             onDragLeave={() => setDrag(false)}
             onDrop={(e) => { e.preventDefault(); setDrag(false); void upload(e.dataTransfer.files[0]); }}
-            className={`press flex w-full flex-col items-center justify-center gap-2 rounded-[14px] border-2 border-dashed px-6 py-10 text-center transition-colors ${drag ? "border-amber bg-amber-wash" : "border-[#d5d9e0] bg-ground hover:border-ink-faint"}`}
+            className={`press flex w-full flex-col items-center justify-center gap-2 rounded-[14px] border-2 border-dashed px-6 py-10 text-center transition-colors ${drag ? "border-amber bg-amber-wash" : "border-[#ddd2c5] bg-ground hover:border-ink-faint"}`}
           >
             {uploading ? <Loader2 size={26} className="animate-spin text-ink-soft" aria-hidden /> : file ? <FileSpreadsheet size={26} className="text-ok" aria-hidden /> : <UploadCloud size={26} className="text-ink-soft" aria-hidden />}
             <span className="font-medium">{uploading ? "Dépôt en cours…" : file ? file : "Glissez le fichier ici ou cliquez pour le choisir"}</span>

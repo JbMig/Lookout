@@ -1,34 +1,37 @@
 @import "tailwindcss";
 
 /*
- * Lookout · monde « nuancier ».
+ * Lookout · direction « beauté éditoriale » (reprise de Prisme) : espresso, terracotta, caramel, taupe, fond beige ;
+ * titres en Cormorant Garamond. Ancienne direction « nuancier » : mêmes noms de jetons, valeurs changées.
  * Rail bleu nuit, fond de travail gris froid, cartes blanches ; l'ambre du logo
  * marque « votre marque » et l'attente. Les seules couleurs vives sont les teintes des produits.
  */
 @theme {
-  --color-night: #13233f;
-  --color-night-2: #1c3256;
-  --color-night-3: #24406b;
-  --color-night-line: #2a3f63;
-  --color-night-text: #c6d1e1;
-  --color-night-muted: #8597b2;
+  --color-night: #1b1411;
+  --color-night-2: #2a1f1a;
+  --color-night-3: #3d2c24;
+  --color-night-line: #4a382c;
+  --color-night-text: #e9ddd1;
+  --color-night-muted: #b8a392;
 
-  --color-ink: #13233f;
-  --color-ink-soft: #4f5d73;
-  --color-ink-faint: #6f7b8e;
-  --color-cream: #f4f5f7; /* fond de travail (nom conservé pour les classes existantes) */
-  --color-ground: #f4f5f7;
+  --color-ink: #241a15;
+  --color-ink-soft: #5e4f45;
+  --color-ink-faint: #7a6a5f;
+  --color-cream: #f6f1eb; /* fond de travail (nom conservé pour les classes existantes) */
+  --color-ground: #f6f1eb;
   --color-paper: #ffffff;
-  --color-line: #e4e6eb;
-  --color-line-soft: #eef0f3;
+  --color-line: #e6dccf;
+  --color-line-soft: #efe7de;
 
-  --color-amber: #f2a33a;
-  --color-amber-dark: #8a560b;
-  --color-amber-wash: #fdf3e3;
-  --color-ok: #17784f;
-  --color-warn: #8a560b;
-  --color-bad: #b33939;
+  --color-amber: #c98f55;
+  --color-amber-dark: #7a4b2e;
+  --color-amber-wash: #f4ebe1;
+  --color-ok: #3f6b45;
+  --color-warn: #7a4b2e;
+  --color-bad: #a3352a;
 
+  --font-display: "Cormorant Garamond", Georgia, serif;
+  --color-terracotta: #a9471f;
   --font-sans: "Hanken Grotesk Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 
   --radius-card: 14px;
@@ -36,6 +39,7 @@
 }
 
 html {
+  font-size: 106.25%; /* 17 px au lieu de 16 : tout le texte un peu plus grand (demande de lisibilité) */
   background: var(--color-ground);
   color: var(--color-ink);
   font-family: var(--font-sans);
@@ -49,7 +53,7 @@ body {
 }
 
 ::selection {
-  background: #f7cfd5;
+  background: #ecd3bf;
   color: var(--color-night);
 }
 
@@ -70,9 +74,16 @@ a {
   text-underline-offset: 3px;
 }
 
+/* Titres de page : capitales à empattements, comme Prisme. */
+h1 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+
 * {
   scrollbar-width: thin;
-  scrollbar-color: #c9ced8 transparent;
+  scrollbar-color: #cdbfb1 transparent;
 }
 
 /* Pression des éléments cliquables : retour immédiat. */
@@ -90,7 +101,7 @@ a {
   }
   .lift:hover {
     transform: translateY(-2px);
-    box-shadow: 0 10px 24px -14px rgb(19 35 63 / 0.35);
+    box-shadow: 0 10px 24px -14px rgb(27 20 17 / 0.35);
   }
 }
 
@@ -107,7 +118,7 @@ a {
 
 /* Squelettes de chargement. */
 .skeleton {
-  background: linear-gradient(90deg, var(--color-line-soft) 0%, #f8f9fa 50%, var(--color-line-soft) 100%);
+  background: linear-gradient(90deg, var(--color-line-soft) 0%, #faf6f1 50%, var(--color-line-soft) 100%);
   background-size: 200% 100%;
   animation: shimmer 1.4s linear infinite;
   border-radius: 8px;

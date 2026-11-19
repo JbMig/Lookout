@@ -66,10 +66,10 @@ Chaque page porte un bouton qui lance son agent ; le suivi s'affiche sur la page
 
 | Agent | Produit | Exécution actuelle |
 |---|---|---|
-| 0 · Audit du catalogue | `catalog_products` | Webhook, sinon agent Holo `HAI_AGENT_0` (à créer) |
+| 0 · Audit du catalogue | `catalog_products` | Agent Holo `bench-catalog-audit` |
 | 1 · Import Circana | `circana_imports`, `circana_sales` | Edge function Supabase `import-circana` |
 | 2 · Enrichissement du marché | `market_products`, `market_shades`, `market_ingredients` | Agent Holo `agent-enrichissement-csv` (+ `shade-color-expert`, `product-image-finder`) |
-| 2.5 · Enrichissement sur sites web | `market_products` (complément) | Agent Holo `HAI_AGENT_2_5` (à créer) |
+| 2.5 · Enrichissement sur sites web | `market_products` (complément) | Agent Holo `agent-recherche-generique` |
 | 3 · Analyse de croissance | `analyses`, `growth_opportunities` | Agent Holo `agent-analyse-concurrentielle` ; sans `HAI_API_KEY`, moteur intégré |
 | 4 · Dashboard | `reports` | Agent Holo `bench-dashboard-creation` (rapport JSON affiché par le site) ; sans `HAI_API_KEY`, Market Radar intégré |
 
@@ -106,8 +106,7 @@ Ne jamais committer ces valeurs : elles se saisissent dans Vercel (Settings > En
 ## État actuel
 
 - **Branché** : import Circana, analyse de croissance, opportunités, dashboard Market Radar, Prisme et son historique.
-- **Agents Holo** : les agents 2, 3 et 4 sont reliés à leur agent H Company dès que `HAI_API_KEY` est renseigné dans Vercel ;
-  les agents 0 et 2.5 attendent leur agent dédié (`HAI_AGENT_0`, `HAI_AGENT_2_5`).
+- **Agents Holo** : les agents 0, 2, 2.5, 3 et 4 sont reliés à leur agent H Company dès que `HAI_API_KEY` est renseigné dans Vercel.
 - **Stripe** n'est pas branché : la page Offres est indicative.
 
 ## Démarrage local

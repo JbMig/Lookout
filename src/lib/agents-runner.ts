@@ -21,12 +21,11 @@ import { NEEDS_SETTINGS, missingSettings } from "./settings-check";
 
 /**
  * Agent Holo de chaque étape (nom de l'agent créé chez H Company). Modifiable par variable d'environnement.
- * Agents 0 et 2.5 : pas encore d'agent dédié ; à défaut, l'agent générique HAI_AGENT reçoit les consignes complètes.
  */
 const HOLO: Partial<Record<AgentId, string>> = {
-  "0": process.env.HAI_AGENT_0 || "",
+  "0": process.env.HAI_AGENT_0 || "bench-catalog-audit",
   "2": process.env.HAI_AGENT_2 || "agent-enrichissement-csv",
-  "2.5": process.env.HAI_AGENT_2_5 || "",
+  "2.5": process.env.HAI_AGENT_2_5 || "agent-recherche-generique",
   "3": process.env.HAI_AGENT_3 || "agent-analyse-concurrentielle",
   "4": process.env.HAI_AGENT_4 || "bench-dashboard-creation",
 };
@@ -42,9 +41,19 @@ function holoParams(cfg: AgentConfig, extra: string[] = []): string {
   ].join("\n");
 }
 
-const SESSION: Partial<Record<AgentId, string>> = {
-  "2": "Tu es l'Agent 2 : enrichissement web des produits concurrents. Récupère les produits via get_top_competitors(), traite-les un par un jusqu'à ce qu'il n'en reste plus, délègue les couleurs au sous-agent Shade Color Expert, sauvegarde via l'Edge Function save-product et vérifie à la fin (0 ligne restante, aucune teinte sans hex ni image).",
-  "3": "Tu es l'Agent 3 : analyse concurrentielle. Lis catalog_products, market_products, market_shades, market_ingredients et circana_sales, compare prix, formats, teintes et ingrédients. Écris d'abord une ligne dans analyses, puis une ligne par opportunité dans growth_opportunities avec analysis_id renseigné. Termine par les 3 opportunités les plus intéressantes avec les chiffres.",
+const country = (z: string) => (z === "US" ? "États-Unis" : "France");
+
+/** Consigne de démarrage de chaque agent Holo dédié (complète ses instructions enregistrées chez H Company). */
+const SESSION: Partial<Record<AgentId, (cfg: AgentConfig) => string>> = {
+  "0": (cfg) => [
+    `Marque : ${cfg.brand}. Pays : ${country(cfg.zone)}. Catégorie : ${cfg.category}.`,
+    `Formats connus dans les ventes : ${cfg.formats.length ? cfg.formats.join(", ") : "non précisés"}.`,
+    `Adresse de départ : ${cfg.startUrl || "non fournie (cherche le site officiel de la marque pour ce pays)"}.`,
+    "Relève le catalogue de la marque puis sauvegarde-le avec update-catalog.",
+  ].join("\n"),
+  "2": () => "Tu es l'Agent 2 : enrichissement web des produits concurrents. Récupère les produits via get_top_competitors(), traite-les un par un jusqu'à ce qu'il n'en reste plus, délègue les couleurs au sous-agent Shade Color Expert, sauvegarde via l'Edge Function save-product et vérifie à la fin (0 ligne restante, aucune teinte sans hex ni image).",
+  "2.5": (cfg) => `Recherche : « ${[cfg.category, ...cfg.formats].join(" ")} ». Zone : ${cfg.zone === "US" ? "US" : "EU"}.`,
+  "3": () => "Tu es l'Agent 3 : analyse concurrentielle. Lis catalog_products, market_products, market_shades, market_ingredients et circana_sales, compare prix, formats, teintes et ingrédients. Écris d'abord une ligne dans analyses, puis une ligne par opportunité dans growth_opportunities avec analysis_id renseigné. Termine par les 3 opportunités les plus intéressantes avec les chiffres.",
 };
 
 async function holoSession(name: string, message: string) {
@@ -118,7 +127,7 @@ async function external(agent: AgentId, cfg: AgentConfig, params: Record<string,
   }
   if (!isDemo.hcompany) {
     const name = HOLO[agent];
-    const s = name ? await holoSession(name, holoParams(cfg, SESSION[agent] ? [SESSION[agent]!] : [])) : await holoSession(config.hcompany.agent, task);
+    const s = name ? await holoSession(name, holoParams(cfg, SESSION[agent] ? [SESSION[agent]!(cfg)] : [])) : await holoSession(config.hcompany.agent, task);
     return { status: "started", via: "h-company", message: `Agent Holo ${name || config.hcompany.agent} lancé (session ${s.id}).`, link: s.agent_view_url ?? null };
   }
   return {
@@ -186,7 +195,7 @@ async function dashboard(cfg: AgentConfig, userId: string | null, params: Record
 
 /** Agent 3 Holo : il écrit lui-même analyses et growth_opportunities ; la page Analyse les affiche dès qu'ils arrivent. */
 async function analyseHolo(cfg: AgentConfig) {
-  const s = await holoSession(HOLO["3"]!, holoParams(cfg, [SESSION["3"]!]));
+  const s = await holoSession(HOLO["3"]!, holoParams(cfg, [SESSION["3"]!(cfg)]));
   return { status: "started" as const, via: "h-company" as const, message: `Agent Holo ${HOLO["3"]} lancé (session ${s.id}). Les résultats apparaîtront dans Analyse et Opportunités.`, link: s.agent_view_url ?? null };
 }
 

@@ -4,8 +4,8 @@ import { AlertTriangle, ArrowUpRight, ShieldAlert } from "lucide-react";
 import type { Alertes, Gravite } from "@/lib/alertes";
 
 const STYLE: Record<Gravite, { bande: string; badge: string; libelle: string }> = {
-  critique: { bande: "bg-bad", badge: "bg-bad text-white", libelle: "Critique" },
-  "élevée": { bande: "bg-amber", badge: "bg-amber text-night", libelle: "Élevée" },
+  critique: { bande: "bg-[#a9471f]", badge: "bg-[#a9471f] text-white", libelle: "Critique" },
+  "élevée": { bande: "bg-[#a9471f]", badge: "bg-[#a9471f] text-[#1b1411]", libelle: "Élevée" },
   "à surveiller": { bande: "bg-[#8597b2]", badge: "bg-ground text-ink-soft", libelle: "À surveiller" },
 };
 const TYPE: Record<string, string> = { viral_negatif: "Contenu viral négatif", terme_sensible: "Termes sensibles", aspect_critique: "Aspect produit critiqué", compte_officiel: "Compte officiel" };
@@ -18,14 +18,14 @@ export function AlertesCrise({ a }: { a: Alertes }) {
   const compte = (g: Gravite) => liste.filter((x) => x.gravite === g).length;
   return (
     <div className="w-full min-w-0 [contain:inline-size] space-y-6">
-      <header className="relative overflow-hidden rounded-[20px] bg-night p-6 text-white md:p-8">
-        <div aria-hidden className="pointer-events-none absolute -right-24 -top-24 h-80 w-80 rounded-full opacity-40 blur-3xl" style={{ background: "radial-gradient(circle, #B33939, transparent 65%)" }} />
-        <p className="relative flex items-center gap-2 text-[12.5px] font-semibold uppercase tracking-[0.1em] text-[#f2a3a3]"><ShieldAlert size={15} aria-hidden />Veille de crise · groupe L&apos;Oréal</p>
+      <header className="relative overflow-hidden rounded-[20px] bg-[#1b1411] p-6 text-white md:p-8">
+        <div aria-hidden className="pointer-events-none absolute -right-24 -top-24 h-80 w-80 rounded-full opacity-40 blur-3xl" style={{ background: "radial-gradient(circle, #a9471f, transparent 65%)" }} />
+        <p className="relative flex items-center gap-2 text-[12.5px] font-semibold uppercase tracking-[0.1em] text-[#e8c3ad]"><ShieldAlert size={15} aria-hidden />Veille de crise · groupe L&apos;Oréal</p>
         <h2 className="relative mt-2 max-w-3xl text-[clamp(24px,3.2vw,36px)] font-semibold leading-[1.12] tracking-[-0.025em] text-balance">
           {compte("critique") ? `${compte("critique")} ${compte("critique") > 1 ? "signaux critiques" : "signal critique"} à traiter` : "Aucun signal critique"}
         </h2>
-        <p className="relative mt-3 max-w-2xl text-night-text">Marques surveillées : {marques.length ? marques.join(", ") : "—"} et toutes les autres marques du groupe présentes dans les données.</p>
-        <p className="relative mt-2 max-w-2xl text-[14px] text-night-muted">Signaux détectés automatiquement sur toutes les données collectées : contenus négatifs à forte audience, termes sensibles dans les commentaires, aspects produit majoritairement critiqués, réactions négatives sur les comptes officiels.</p>
+        <p className="relative mt-3 max-w-2xl text-[#e9ddd1]">Marques surveillées : {marques.length ? marques.join(", ") : "—"} et toutes les autres marques du groupe présentes dans les données.</p>
+        <p className="relative mt-2 max-w-2xl text-[14px] text-[#c8b4a2]">Signaux détectés automatiquement sur toutes les données collectées : contenus négatifs à forte audience, termes sensibles dans les commentaires, aspects produit majoritairement critiqués, réactions négatives sur les comptes officiels.</p>
       </header>
 
       <div className="grid grid-cols-3 gap-3">
@@ -39,7 +39,7 @@ export function AlertesCrise({ a }: { a: Alertes }) {
 
       <div className="flex flex-wrap gap-2" role="group" aria-label="Filtrer par marque">
         {["toutes", ...marques].map((m) => (
-          <button key={m} onClick={() => setMarque(m)} aria-pressed={marque === m} className={`press rounded-full border px-4 py-1.5 text-sm font-medium ${marque === m ? "border-night bg-night text-white" : "border-line bg-paper text-ink-soft"}`}>{m === "toutes" ? "Toutes les marques" : m}</button>
+          <button key={m} onClick={() => setMarque(m)} aria-pressed={marque === m} className={`press rounded-full border px-4 py-1.5 text-sm font-medium ${marque === m ? "border-[#1b1411] bg-[#1b1411] text-white" : "border-line bg-paper text-ink-soft"}`}>{m === "toutes" ? "Toutes les marques" : m}</button>
         ))}
       </div>
 
@@ -52,7 +52,7 @@ export function AlertesCrise({ a }: { a: Alertes }) {
               <span className="rounded-full bg-ground px-2.5 py-0.5 text-[11.5px] font-medium text-ink-soft">{TYPE[x.type]}</span>
               <span className="text-[12.5px] text-ink-faint">{x.marque}{x.date ? ` · ${new Date(x.date).toLocaleDateString("fr-FR")}` : ""}</span>
             </div>
-            <h3 className="mt-2 flex items-start gap-2 text-lg font-semibold"><AlertTriangle size={17} className="mt-0.5 shrink-0 text-bad" aria-hidden />{x.titre}</h3>
+            <h3 className="mt-2 flex items-start gap-2 text-lg font-semibold"><AlertTriangle size={17} className="mt-0.5 shrink-0 text-[#a9471f]" aria-hidden />{x.titre}</h3>
             <p className="mt-1 text-[15px] text-ink-soft">{x.constat}</p>
             {!!x.exemples.length && (
               <ul className="mt-3 grid gap-2 md:grid-cols-2">

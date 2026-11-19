@@ -3,21 +3,38 @@ import { useEffect, useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ArrowUpRight, ChevronDown, Hash, Lightbulb, MessageCircleQuestion, Play, ShoppingBag, ThumbsDown, TrendingUp, X } from "lucide-react";
 import { Skeleton } from "@/components/ui";
+// police de titres embarquée dans le site (licence OFL, aucune requête vers un service externe)
+import "@fontsource/cormorant-garamond/500.css";
+import "@fontsource/cormorant-garamond/600.css";
+import "@fontsource/cormorant-garamond/700.css";
 import { estLuxe } from "@/lib/marques";
 import type { DashboardPrisme, DetailProduit, FocusMarque } from "@/lib/prisme-dashboard";
 
 type Ligne = Record<string, unknown>;
+// Style éditorial beauté (Prisme uniquement) : titres à empattements, tons espresso / bronze / caramel / nude.
+const SERIF = "[font-family:'Cormorant_Garamond',Georgia,serif]";
+const ESPRESSO = "#1b1411", BRONZE = "#7a4b2e", CARAMEL = "#b98a5e", NUDE = "#f4ebe1";
+
+/** Titre de partie : numéro et sur-titre en capitales espacées, titre à empattements. */
+function TitrePartie({ n: num, surtitre, children }: { n: string; surtitre: string; children: React.ReactNode }) {
+  return (
+    <div className="px-1">
+      <p className="text-[12.5px] font-semibold uppercase tracking-[0.22em]" style={{ color: BRONZE }}>{num} — {surtitre}</p>
+      <h3 className={`${SERIF} mt-1 text-[clamp(28px,3.4vw,38px)] font-semibold leading-[1.05] tracking-[-0.01em] text-ink`}>{children}</h3>
+    </div>
+  );
+}
 const n = (v: unknown) => (typeof v === "number" ? v : Number(v ?? 0) || 0);
 const compact = (v: number) => new Intl.NumberFormat("fr-FR", { notation: v >= 10000 ? "compact" : "standard", maximumFractionDigits: 1 }).format(v);
 const pct = (v: number) => `${new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 1 }).format(v)} %`;
 const TICK = { fontSize: 14, fill: "#4f5d73" };   // lisible à l'écran pendant l'oral
-const TIP = { contentStyle: { borderRadius: 10, border: "1px solid #e4e6eb", fontSize: 14 }, cursor: { fill: "rgb(19 35 63 / 0.05)" } };
+const TIP = { contentStyle: { borderRadius: 10, border: "1px solid #e6dccf", fontSize: 14 }, cursor: { fill: "rgb(19 35 63 / 0.05)" } };
 const PLATEFORME: Record<string, string> = { tiktok: "TikTok", instagram: "Instagram", youtube: "YouTube" };
 
 function Bloc({ titre, mesure, children, className = "" }: { titre: string; mesure: string; children: React.ReactNode; className?: string }) {
   return (
     <section className={`min-w-0 rounded-[16px] border border-line bg-paper p-5 ${className}`}>
-      <h3 className="text-[19px] font-semibold tracking-[-0.01em]">{titre}</h3>
+      <h3 className={`${SERIF} text-[24px] font-semibold leading-tight`}>{titre}</h3>
       <p className="mb-4 mt-1 text-[14.5px] leading-snug text-ink-soft">{mesure}</p>
       {children}
     </section>
@@ -34,7 +51,7 @@ function LecteurTikTok({ id, onClose }: { id: string; onClose: () => void }) {
     return () => window.removeEventListener("keydown", k);
   }, [onClose]);
   return (
-    <div role="dialog" aria-modal="true" aria-label="Vidéo TikTok" className="fixed inset-0 z-50 grid place-items-center bg-night/80 p-4 backdrop-blur-sm" onClick={onClose}>
+    <div role="dialog" aria-modal="true" aria-label="Vidéo TikTok" className="fixed inset-0 z-50 grid place-items-center bg-[#1b1411]/80 p-4 backdrop-blur-sm" onClick={onClose}>
       <div className="relative w-full max-w-[340px]" onClick={(e) => e.stopPropagation()}>
         <button onClick={onClose} className="press absolute -top-11 right-0 rounded-full bg-paper px-3 py-1 text-sm font-medium text-ink">Fermer ✕</button>
         <iframe title="Vidéo TikTok" src={`https://www.tiktok.com/player/v1/${id}?music_info=1&description=1&autoplay=1`} allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
@@ -60,7 +77,7 @@ function PopupProduit({ nom, charger, onClose }: { nom: string; charger: (p: str
     <aside role="dialog" aria-modal="false" aria-label={`Fiche produit ${nom}`} className="fixed inset-y-0 right-0 z-50 w-full max-w-[560px] overflow-y-auto border-l border-line bg-paper shadow-[-24px_0_48px_-24px_rgb(19_35_63/0.35)]">
       <div>
         <div className="relative">
-          <div className="relative aspect-[16/7] bg-gradient-to-br from-night via-night-3 to-[#8E3557]">
+          <div className="relative aspect-[16/7] bg-gradient-to-br from-[#1b1411] via-[#4a382c] to-[#a9471f]">
             {p?.image && (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={p.image} alt="" referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.style.display = "none"; }} className="absolute inset-0 h-full w-full object-cover" />
@@ -68,15 +85,15 @@ function PopupProduit({ nom, charger, onClose }: { nom: string; charger: (p: str
           </div>
           <div className="p-5">
             <button onClick={onClose} aria-label="Fermer" className="press absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-full bg-paper/90 text-ink shadow"><X size={18} /></button>
-            <p className="text-[12.5px] font-semibold uppercase tracking-[0.08em] text-amber-dark">{p?.marque || "Produit"}</p>
+            <p className="text-[12.5px] font-semibold uppercase tracking-[0.08em] text-[#7a4b2e]">{p?.marque || "Produit"}</p>
             <h3 className="mt-1 text-2xl font-semibold leading-tight tracking-[-0.02em] text-balance">{nom}</h3>
-            {erreur && <p className="mt-3 text-sm text-bad">{erreur}</p>}
+            {erreur && <p className="mt-3 text-sm text-[#a9471f]">{erreur}</p>}
             {!p && !erreur && <p className="mt-3 text-sm text-ink-faint">Chargement de la fiche…</p>}
             {p && (
               <dl className="mt-4 grid grid-cols-3 gap-3 text-center">
                 <div className="rounded-xl bg-ground p-2"><dt className="text-[11px] text-ink-faint">vues</dt><dd className="text-lg font-semibold">{compact(p.stats.vues)}</dd></div>
                 <div className="rounded-xl bg-ground p-2"><dt className="text-[11px] text-ink-faint">vidéos · commentaires</dt><dd className="text-lg font-semibold">{p.stats.videos} · {compact(p.stats.commentaires)}</dd></div>
-                <div className="rounded-xl bg-ground p-2"><dt className="text-[11px] text-ink-faint">ton des vidéos</dt><dd className={`text-lg font-semibold ${n(p.stats.sentiment) > 0.2 ? "text-ok" : n(p.stats.sentiment) < -0.2 ? "text-bad" : ""}`}>{p.stats.sentiment == null ? "—" : n(p.stats.sentiment) > 0.2 ? "positif" : n(p.stats.sentiment) < -0.2 ? "négatif" : "neutre"}</dd></div>
+                <div className="rounded-xl bg-ground p-2"><dt className="text-[11px] text-ink-faint">ton des vidéos</dt><dd className={`text-lg font-semibold ${n(p.stats.sentiment) > 0.2 ? "text-[#4a382c]" : n(p.stats.sentiment) < -0.2 ? "text-[#a9471f]" : ""}`}>{p.stats.sentiment == null ? "—" : n(p.stats.sentiment) > 0.2 ? "positif" : n(p.stats.sentiment) < -0.2 ? "négatif" : "neutre"}</dd></div>
               </dl>
             )}
             {p && (p.stats.formats.length > 0 || p.stats.finis.length > 0) && <p className="mt-3 text-[13px] text-ink-soft">Format : {[...p.stats.formats, ...p.stats.finis].join(" · ")}</p>}
@@ -87,7 +104,7 @@ function PopupProduit({ nom, charger, onClose }: { nom: string; charger: (p: str
                 <ul className="flex flex-wrap gap-1.5">
                   {p.teintes.map((t) => (
                     <li key={t.nom} className="flex items-center gap-1.5 rounded-full border border-line py-0.5 pl-1 pr-2.5 text-[12.5px]">
-                      <i className="h-4 w-4 rounded-full border border-line" style={{ background: t.hex ?? "repeating-linear-gradient(45deg,#e4e6eb,#e4e6eb 3px,#fff 3px,#fff 6px)" }} title={t.hex ?? "couleur non lue"} />{t.nom}
+                      <i className="h-4 w-4 rounded-full border border-line" style={{ background: t.hex ?? "repeating-linear-gradient(45deg,#e6dccf,#e6dccf 3px,#fff 3px,#fff 6px)" }} title={t.hex ?? "couleur non lue"} />{t.nom}
                     </li>
                   ))}
                 </ul>
@@ -111,7 +128,7 @@ function PopupProduit({ nom, charger, onClose }: { nom: string; charger: (p: str
                 <h4 className="mb-2 text-sm font-semibold">Ce qu&apos;on en dit (commentaires de ces vidéos)</h4>
                 <ul className="flex flex-wrap gap-2">
                   {p.aspects.map((a) => (
-                    <li key={a.aspect} className="rounded-full border border-line px-3 py-1 text-[13px]">{a.aspect} <b className="text-ok">+{a.positif}</b> <b className="text-bad">−{a.negatif}</b></li>
+                    <li key={a.aspect} className="rounded-full border border-line px-3 py-1 text-[13px]">{a.aspect} <b className="text-[#4a382c]">+{a.positif}</b> <b className="text-[#a9471f]">−{a.negatif}</b></li>
                   ))}
                 </ul>
               </div>
@@ -121,8 +138,8 @@ function PopupProduit({ nom, charger, onClose }: { nom: string; charger: (p: str
                 <h4 className="mb-2 text-sm font-semibold">Vidéos qui en parlent</h4>
                 <ul className="grid gap-2 sm:grid-cols-2">
                   {p.videos.slice(0, 6).map((v, i) => (
-                    <li key={i}><a href={String(v.url)} target="_blank" rel="noopener noreferrer" className="press flex items-center gap-3 rounded-xl border border-line p-2 hover:border-amber">
-                      <span className="relative h-12 w-20 shrink-0 overflow-hidden rounded-lg bg-gradient-to-br from-night to-[#8E3557]">
+                    <li key={i}><a href={String(v.url)} target="_blank" rel="noopener noreferrer" className="press flex items-center gap-3 rounded-xl border border-line p-2 hover:border-[#b98a5e]">
+                      <span className="relative h-12 w-20 shrink-0 overflow-hidden rounded-lg bg-gradient-to-br from-[#1b1411] to-[#a9471f]">
                         {v.image && (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={String(v.image)} alt="" referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.style.display = "none"; }} className="h-full w-full object-cover" />
@@ -145,7 +162,7 @@ function PopupProduit({ nom, charger, onClose }: { nom: string; charger: (p: str
                 <h4 className="mb-2 text-sm font-semibold">Commentaires les plus aimés</h4>
                 <ul className="grid gap-2 sm:grid-cols-2">
                   {p.commentaires.map((c, i) => (
-                    <li key={i} className={`rounded-xl border-l-[3px] bg-ground px-3 py-2 text-[13px] ${c.sentiment === "positif" ? "border-ok" : "border-bad"}`}>
+                    <li key={i} className={`rounded-xl border-l-[3px] bg-ground px-3 py-2 text-[13px] ${c.sentiment === "positif" ? "border-[#9a8676]" : "border-[#a9471f]"}`}>
                       « {c.texte} » <span className="block text-xs text-ink-faint">{compact(n(c.likes))} j&apos;aime{c.url && <> · <a className="underline" href={String(c.url)} target="_blank" rel="noopener noreferrer">voir la vidéo</a></>}</span>
                     </li>
                   ))}
@@ -161,7 +178,7 @@ function PopupProduit({ nom, charger, onClose }: { nom: string; charger: (p: str
 
 const DRAPEAU: Record<string, string> = { FR: "France", EU: "Europe (FR, DE, GB, ES, IT)", US: "États-Unis", GB: "Royaume-Uni", DE: "Allemagne" };
 
-const COULEUR_PF: Record<string, string> = { tiktok: "#13233F", instagram: "#8E3557", youtube: "#C8243B" };
+const COULEUR_PF: Record<string, string> = { tiktok: "#4a382c", instagram: "#a9471f", youtube: "#d9a35e" };
 /** Répartition des données par plateforme (vidéos et commentaires), en % du total de la veille. */
 function Sources({ rows, compact: petit = false }: { rows: Ligne[]; compact?: boolean }) {
   if (!rows.length) return null;
@@ -199,23 +216,23 @@ function Comparaison({ d }: { d: DashboardPrisme }) {
   const A = DRAPEAU[d.veille.pays] ?? d.veille.pays, B = DRAPEAU[c.pays] ?? c.pays;
   return (
     <section className="rounded-[20px] border border-line bg-paper p-5">
-      <h3 className="text-lg font-semibold tracking-[-0.01em]">{A} vs {B}</h3>
+      <h3 className={`${SERIF} text-[26px] font-semibold`}>{A} vs {B}</h3>
       <p className="mb-4 mt-0.5 text-[13px] leading-snug text-ink-faint">Part de voix calculée au sein de chaque marché (base 100 par marché), comparable quel que soit le volume collecté. Barres atténuées : moins de 20 mentions, significativité limitée.</p>
       <div className="mb-5 grid grid-cols-2 gap-3">
-        <div className="space-y-3 rounded-[14px] bg-gradient-to-br from-amber-wash to-paper p-4"><p className="text-[12.5px] font-semibold text-ink-faint">{A}</p><p className="text-[34px] font-semibold leading-none text-amber-dark">{pct(Math.round(pdvIci * 10) / 10)}</p><p className="text-[13px] text-ink-soft">de la conversation pour L&apos;Oréal</p></div>
-        <div className="space-y-3 rounded-[14px] bg-gradient-to-br from-ground to-paper p-4"><p className="text-[12.5px] font-semibold text-ink-faint">{B}</p><p className="text-[34px] font-semibold leading-none text-night">{pct(c.pdv_loreal)}</p><p className="text-[13px] text-ink-soft">de la conversation pour L&apos;Oréal</p></div>
+        <div className="space-y-3 rounded-[14px] bg-gradient-to-br from-[#f4ebe1] to-paper p-4"><p className="text-[12.5px] font-semibold text-ink-faint">{A}</p><p className="text-[34px] font-semibold leading-none text-[#7a4b2e]">{pct(Math.round(pdvIci * 10) / 10)}</p><p className="text-[13px] text-ink-soft">de la conversation pour L&apos;Oréal</p></div>
+        <div className="space-y-3 rounded-[14px] bg-gradient-to-br from-ground to-paper p-4"><p className="text-[12.5px] font-semibold text-ink-faint">{B}</p><p className="text-[34px] font-semibold leading-none text-[#1b1411]">{pct(c.pdv_loreal)}</p><p className="text-[13px] text-ink-soft">de la conversation pour L&apos;Oréal</p></div>
       </div>
       <ResponsiveContainer width="100%" height={Math.max(240, data.length * 40)}>
         <BarChart data={data} layout="vertical" margin={{ left: 4, right: 16 }} barGap={2}>
-          <CartesianGrid stroke="#eef0f3" horizontal={false} />
+          <CartesianGrid stroke="#efe7de" horizontal={false} />
           <XAxis type="number" tick={TICK} unit=" %" />
           <YAxis type="category" dataKey="marque" tick={TICK} width={130} />
           <Tooltip {...TIP} formatter={(v, k) => [pct(Number(v)), k === "ici" ? A : B]} />
-          <Bar isAnimationActive={false} dataKey="ici" name={A} fill="#F2A33A" radius={[0, 4, 4, 0]}>{data.map((x, i) => <Cell key={i} fillOpacity={x.fi ? 0.35 : 1} />)}</Bar>
-          <Bar isAnimationActive={false} dataKey="la" name={B} fill="#13233F" radius={[0, 4, 4, 0]}>{data.map((x, i) => <Cell key={i} fillOpacity={x.fl ? 0.35 : 1} />)}</Bar>
+          <Bar isAnimationActive={false} dataKey="ici" name={A} fill="#a9471f" radius={[0, 4, 4, 0]}>{data.map((x, i) => <Cell key={i} fillOpacity={x.fi ? 0.35 : 1} />)}</Bar>
+          <Bar isAnimationActive={false} dataKey="la" name={B} fill="#4a382c" radius={[0, 4, 4, 0]}>{data.map((x, i) => <Cell key={i} fillOpacity={x.fl ? 0.35 : 1} />)}</Bar>
         </BarChart>
       </ResponsiveContainer>
-      <p className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[13.5px] text-ink-soft"><span className="whitespace-nowrap"><i className="mr-1 inline-block h-2.5 w-2.5 rounded-sm bg-amber" />{A}</span><span className="whitespace-nowrap"><i className="mr-1 inline-block h-2.5 w-2.5 rounded-sm bg-night" />{B}</span><span>part de voix de chaque marque dans son pays</span></p>
+      <p className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[13.5px] text-ink-soft"><span className="whitespace-nowrap"><i className="mr-1 inline-block h-2.5 w-2.5 rounded-sm bg-[#a9471f]" />{A}</span><span className="whitespace-nowrap"><i className="mr-1 inline-block h-2.5 w-2.5 rounded-sm bg-[#1b1411]" />{B}</span><span>part de voix de chaque marque dans son pays</span></p>
       <div className="mt-5 grid gap-5 sm:grid-cols-2">
         <div className="grid gap-4"><Liste titre={`Produits · ${A}`} rows={d.donnees.produits} cle="vues" nom="produit" /><Liste titre={`Hashtags · ${A}`} rows={d.donnees.hashtags} cle="vues" nom="hashtag" /></div>
         <div className="grid gap-4"><Liste titre={`Produits · ${B}`} rows={c.produits} cle="vues" nom="produit" /><Liste titre={`Hashtags · ${B}`} rows={c.hashtags} cle="vues" nom="hashtag" /></div>
@@ -228,11 +245,12 @@ const MOIS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août"
 const libMois = (m: string) => `${MOIS[Number(m.slice(5, 7)) - 1] ?? m} ${m.slice(2, 4)}`;
 
 /** Couleurs bien distinctes : L'Oréal en traits pleins orangés, concurrents en pointillés bleu nuit / prune. */
-// Palette validée (contrôle daltonisme et séparation réussis) : L'Oréal = orange / jaune, concurrents = bleu / vert.
+// Palette terre (terracotta, caramel, cacao, taupe) : séparation daltonisme validée ; cacao et taupe sont peu saturés,
+// d'où l'encodage secondaire obligatoire ci-dessous et la légende.
 // Encodage secondaire : traits pleins pour L'Oréal, pointillés pour les concurrents (jamais la couleur seule).
 const STYLE_LIGNE = (loreal: boolean, rang: number) => loreal
-  ? { stroke: rang === 0 ? "#eb6834" : "#eda100", strokeDasharray: undefined }
-  : { stroke: rang === 0 ? "#2a78d6" : "#1baf7a", strokeDasharray: "7 5" };
+  ? { stroke: rang === 0 ? "#a9471f" : "#d9a35e", strokeDasharray: undefined }
+  : { stroke: rang === 0 ? "#4a382c" : "#9a8676", strokeDasharray: "7 5" };
 const LEGENDE = { fontSize: 15, paddingTop: 10 };
 const TICK_ORAL = { fontSize: 14, fill: "#4f5d73" };
 
@@ -243,14 +261,14 @@ function Evolution({ d }: { d: DashboardPrisme }) {
   const rang = (liste: { loreal: boolean }[], i: number) => liste.slice(0, i).filter((x) => x.loreal === liste[i].loreal).length;
   return (
     <section className="space-y-4">
-      <h3 className="px-1 text-lg font-semibold tracking-[-0.01em]">Évolution</h3>
+      <h3 className={`${SERIF} px-1 text-[28px] font-semibold`}>Évolution</h3>
       <div className="grid gap-5 lg:grid-cols-2">
         {e.mois.length >= 2 && (
           <Bloc titre="Part des mentions, mois par mois" mesure="Part des vidéos du mois qui citent la marque (en %). Seuls les mois avec au moins 50 vidéos sont affichés. Traits pleins : groupe L'Oréal · pointillés : concurrents.">
-            {e.lecture_mois && <p className="-mt-1 mb-3 rounded-lg bg-amber-wash px-3 py-2.5 text-[15.5px] font-medium text-ink">{e.lecture_mois}</p>}
+            {e.lecture_mois && <p className="-mt-1 mb-3 rounded-lg bg-[#f4ebe1] px-3 py-2.5 text-[15.5px] font-medium text-ink">{e.lecture_mois}</p>}
             <ResponsiveContainer width="100%" height={320}>
               <LineChart data={e.mois} margin={{ left: -6, right: 16, top: 8 }}>
-                <CartesianGrid stroke="#eef0f3" vertical={false} />
+                <CartesianGrid stroke="#efe7de" vertical={false} />
                 <XAxis dataKey="mois" tick={TICK_ORAL} tickFormatter={libMois} padding={{ left: 12, right: 12 }} />
                 <YAxis tick={TICK_ORAL} unit=" %" width={52} />
                 <Tooltip {...TIP} labelFormatter={(l) => libMois(String(l))} formatter={(v, k) => [`${String(v).replace(".", ",")} % des vidéos du mois`, String(k)]} />
@@ -262,10 +280,10 @@ function Evolution({ d }: { d: DashboardPrisme }) {
         )}
         {e.recherche.length >= 8 && !!e.mots.length && (
           <Bloc titre="Demande sur Google, 6 derniers mois" mesure="Indice Google Trends (100 = semaine la plus forte sur 12 mois), moyenne glissante sur 4 semaines. Seules les recherches avec un volume réel sont affichées.">
-            {e.lecture_google && <p className="-mt-1 mb-3 rounded-lg bg-amber-wash px-3 py-2.5 text-[15.5px] font-medium text-ink">{e.lecture_google}</p>}
+            {e.lecture_google && <p className="-mt-1 mb-3 rounded-lg bg-[#f4ebe1] px-3 py-2.5 text-[15.5px] font-medium text-ink">{e.lecture_google}</p>}
             <ResponsiveContainer width="100%" height={320}>
               <LineChart data={e.recherche} margin={{ left: -6, right: 16, top: 8 }}>
-                <CartesianGrid stroke="#eef0f3" vertical={false} />
+                <CartesianGrid stroke="#efe7de" vertical={false} />
                 <XAxis dataKey="semaine" tick={TICK_ORAL} tickFormatter={(w) => libMois(String(w).slice(0, 7))} minTickGap={40} />
                 <YAxis tick={TICK_ORAL} width={40} />
                 <Tooltip {...TIP} labelFormatter={(l) => `Semaine du ${new Date(String(l)).toLocaleDateString("fr-FR")}`} />
@@ -295,8 +313,8 @@ function Banderole({ videos }: { videos: Ligne[] }) {
   const carte = (v: Ligne, i: number, dup = false) => (
     <a key={`${dup ? "d" : ""}${i}`} href={String(v.url)} target="_blank" rel="noopener noreferrer" aria-hidden={dup || undefined} tabIndex={dup ? -1 : undefined}
       onClick={(e) => { const id = v.plateforme === "tiktok" ? idTikTok(v.url) : null; if (id) { e.preventDefault(); setLecture(id); } }}
-      className="group relative flex w-[260px] shrink-0 flex-col overflow-hidden rounded-[14px] border border-line bg-paper transition hover:-translate-y-0.5 hover:border-amber hover:shadow-[0_10px_24px_-14px_rgb(19_35_63/0.45)]">
-      <div className="relative aspect-video w-full overflow-hidden bg-gradient-to-br from-night via-night-3 to-[#8E3557]">
+      className="group relative flex w-[260px] shrink-0 flex-col overflow-hidden rounded-[14px] border border-line bg-paper transition hover:-translate-y-0.5 hover:border-[#b98a5e] hover:shadow-[0_10px_24px_-14px_rgb(19_35_63/0.45)]">
+      <div className="relative aspect-video w-full overflow-hidden bg-gradient-to-br from-[#1b1411] via-[#4a382c] to-[#a9471f]">
         <span className="absolute inset-0 grid place-items-center text-sm font-semibold uppercase tracking-[0.12em] text-white/70">{PLATEFORME[String(v.plateforme)] ?? String(v.plateforme)}</span>
         {Boolean(v.image) && (
           // Miniature de la plateforme ; si le lien a expiré, on garde le fond coloré.
@@ -305,7 +323,7 @@ function Banderole({ videos }: { videos: Ligne[] }) {
             className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105" />
         )}
         <span className="absolute left-2 top-2 rounded-full bg-black/55 px-2 py-0.5 text-[11px] font-semibold text-white">{PLATEFORME[String(v.plateforme)] ?? String(v.plateforme)}</span>
-        <span className="absolute bottom-2 right-2 grid h-8 w-8 place-items-center rounded-full bg-white/90 text-night opacity-90 transition group-hover:bg-amber"><Play size={14} fill="currentColor" aria-hidden /></span>
+        <span className="absolute bottom-2 right-2 grid h-8 w-8 place-items-center rounded-full bg-white/90 text-[#1b1411] opacity-90 transition group-hover:bg-[#a9471f]"><Play size={14} fill="currentColor" aria-hidden /></span>
       </div>
       <div className="flex flex-1 flex-col p-3">
         <span className="text-lg font-semibold tabular-nums">{compact(n(v.vues))} <span className="text-xs font-normal text-ink-faint">vues</span></span>
@@ -345,13 +363,13 @@ function CarteMacro({ icone, titre, mesure, lignes, onClic }: {
   const [premier, ...suite] = lignes;
   return (
     <section className="flex min-w-0 flex-col rounded-[16px] border border-line bg-paper p-5">
-      <h3 className="flex items-center gap-2 text-[17px] font-semibold">{icone}{titre}</h3>
+      <h3 className={`${SERIF} flex items-center gap-2 text-[22px] font-semibold`}>{icone}{titre}</h3>
       <p className="mt-0.5 text-[13.5px] leading-snug text-ink-soft">{mesure}</p>
       {premier ? (
         <>
           <Cl nom={premier.nom} onClic={onClic} className="mt-4 rounded-[12px] bg-ground px-4 py-3">
             <span className="text-[12.5px] font-semibold uppercase tracking-[0.08em] text-ink-faint">N°1</span>
-            <span className={`mt-0.5 block text-[22px] font-semibold leading-tight tracking-[-0.02em] ${premier.accent ? "text-[#c4501f]" : "text-ink"}`}>{premier.nom}</span>
+            <span className={`mt-0.5 block text-[22px] font-semibold leading-tight tracking-[-0.02em] ${premier.accent ? "text-[#a9471f]" : "text-ink"}`}>{premier.nom}</span>
             <span className="mt-1 block text-[15px] font-medium tabular-nums text-ink">{premier.valeur}{premier.detail && <span className="font-normal text-ink-soft"> · {premier.detail}</span>}</span>
           </Cl>
           <ol className="mt-2 divide-y divide-line-soft">
@@ -359,8 +377,8 @@ function CarteMacro({ icone, titre, mesure, lignes, onClic }: {
               <li key={l.nom}>
                 <Cl nom={l.nom} onClic={onClic} className="grid grid-cols-[22px_minmax(0,1fr)_auto] items-baseline gap-2 rounded-lg px-1 py-2">
                   <span className="text-[13px] tabular-nums text-ink-faint">{i + 2}</span>
-                  <span className={`truncate text-[15px] ${l.accent ? "font-semibold text-[#c4501f]" : "text-ink"}`}>{l.nom}</span>
-                  <span className="text-[14px] tabular-nums text-ink-soft">{l.valeur}{l.detail && <span className="hidden text-ink-faint sm:inline"> · {l.detail}</span>}</span>
+                  <span className={`truncate text-[15px] ${l.accent ? "font-semibold text-[#a9471f]" : "text-ink"}`}>{l.nom}</span>
+                  <span className="text-[14px] tabular-nums text-ink-soft">{l.valeur}{l.detail && <span className="hidden text-ink-faint sm:inline lg:hidden"> · {l.detail}</span>}</span>
                 </Cl>
               </li>
             ))}
@@ -383,15 +401,15 @@ function Aspects({ rows }: { rows: { aspect: string; positif: number; negatif: n
     <>
       <ResponsiveContainer width="100%" height={Math.max(220, rows.length * 38)}>
         <BarChart data={data} layout="vertical" stackOffset="sign" margin={{ left: 4, right: 16 }}>
-          <CartesianGrid stroke="#eef0f3" horizontal={false} />
+          <CartesianGrid stroke="#efe7de" horizontal={false} />
           <XAxis type="number" tick={TICK} domain={[-M, M]} ticks={ticks.length <= 11 ? ticks : undefined} allowDecimals={false} tickFormatter={(v) => String(Math.abs(Number(v)))} />
           <YAxis type="category" dataKey="aspect" tick={TICK} width={128} />
           <Tooltip {...TIP} formatter={(v, name) => [`${Math.abs(Number(v))} commentaires`, name === "negatif" ? "critiques" : "éloges"]} />
-          <Bar isAnimationActive={false} dataKey="negatif" stackId="s" fill="#B33939" radius={[5, 0, 0, 5]} />
-          <Bar isAnimationActive={false} dataKey="positif" stackId="s" fill="#17784F" radius={[0, 5, 5, 0]} />
+          <Bar isAnimationActive={false} dataKey="negatif" stackId="s" fill="#a9471f" radius={[5, 0, 0, 5]} />
+          <Bar isAnimationActive={false} dataKey="positif" stackId="s" fill="#4a382c" radius={[0, 5, 5, 0]} />
         </BarChart>
       </ResponsiveContainer>
-      <p className="mt-1 flex gap-4 text-[14px] text-ink-soft"><span><i className="mr-1.5 inline-block h-2.5 w-2.5 rounded-sm bg-bad" />◀ critiques</span><span><i className="mr-1.5 inline-block h-2.5 w-2.5 rounded-sm bg-ok" />éloges ▶</span></p>
+      <p className="mt-1 flex gap-4 text-[14px] text-ink-soft"><span><i className="mr-1.5 inline-block h-2.5 w-2.5 rounded-sm bg-[#a9471f]" />◀ critiques</span><span><i className="mr-1.5 inline-block h-2.5 w-2.5 rounded-sm bg-[#4a382c]" />éloges ▶</span></p>
     </>
   );
 }
@@ -403,8 +421,8 @@ function Verbatims({ rows }: { rows: Ligne[] }) {
       {rows.slice(0, 4).map((c, i) => {
         const contenu = (<>« {String(c.texte)} »<span className="mt-1.5 flex items-center justify-between gap-2 text-[13px] text-ink-faint">
           <span>{c.marque ? `${String(c.marque)} · ` : ""}{PLATEFORME[String(c.plateforme)] ?? String(c.plateforme ?? "")} · {compact(n(c.likes))} j&apos;aime</span>
-          {Boolean(c.url) && <ArrowUpRight size={14} className="shrink-0 group-hover:text-amber-dark" aria-hidden />}</span></>);
-        const cls = `group block rounded-[12px] border-l-[3px] bg-ground px-4 py-3 text-[15px] leading-relaxed ${c.sentiment === "positif" ? "border-ok" : "border-bad"}`;
+          {Boolean(c.url) && <ArrowUpRight size={14} className="shrink-0 group-hover:text-[#7a4b2e]" aria-hidden />}</span></>);
+        const cls = `group block rounded-[12px] border-l-[3px] bg-ground px-4 py-3 text-[15px] leading-relaxed ${c.sentiment === "positif" ? "border-[#9a8676]" : "border-[#a9471f]"}`;
         return c.url ? <a key={i} href={String(c.url)} target="_blank" rel="noopener noreferrer" className={`${cls} transition hover:bg-line-soft`}>{contenu}</a> : <blockquote key={i} className={cls}>{contenu}</blockquote>;
       })}
     </div>
@@ -434,9 +452,9 @@ function Benchmark({ D, focus }: { D: DashboardPrisme["donnees"]; focus: string 
         {rows.map((m) => {
           const lo = nous.includes(m), a = avis(m);
           return (
-            <li key={String(m.marque)} className={`rounded-[12px] border border-line-soft px-3 py-2.5 ${lo ? "bg-amber-wash/60" : "bg-paper"}`}>
+            <li key={String(m.marque)} className={`rounded-[12px] border border-line-soft px-3 py-2.5 ${lo ? "bg-[#f4ebe1]/60" : "bg-paper"}`}>
               <div className="flex items-center justify-between gap-2"><span className={`truncate text-[16px] ${lo ? "font-semibold" : "text-ink-soft"}`}>{String(m.marque)}</span><span className="text-[16px] font-semibold tabular-nums">{pct(n(m.part_de_voix_pct))}</span></div>
-              <span className="mt-1.5 block h-2.5 rounded-r bg-ground"><span className="block h-full rounded-r" style={{ width: `${(100 * n(m.part_de_voix_pct)) / max}%`, background: lo ? "#eb6834" : "#b8bfca" }} /></span>
+              <span className="mt-1.5 block h-2.5 rounded-r bg-ground"><span className="block h-full rounded-r" style={{ width: `${(100 * n(m.part_de_voix_pct)) / max}%`, background: lo ? "#a9471f" : "#cfc3b6" }} /></span>
               <p className="mt-1.5 text-[13.5px] text-ink-soft">{compact(n(m.videos))} vidéos · {compact(n(m.vues))} vues · avis positifs {a === null ? "—" : `${a} %`} · « je l&apos;achète » {n(m.achete) || "—"}</p>
             </li>
           );
@@ -451,9 +469,9 @@ function Benchmark({ D, focus }: { D: DashboardPrisme["donnees"]; focus: string 
           {rows.map((m) => {
             const lo = nous.includes(m), a = avis(m);
             return (
-              <tr key={String(m.marque)} className={`border-b border-line-soft ${lo ? "bg-amber-wash/60" : ""}`}>
+              <tr key={String(m.marque)} className={`border-b border-line-soft ${lo ? "bg-[#f4ebe1]/60" : ""}`}>
                 <td className={`py-2.5 pr-3 ${lo ? "font-semibold" : "text-ink-soft"}`}>{String(m.marque)}</td>
-                <td className="py-2.5 pr-3"><span className="flex items-center gap-2"><span className="h-3 w-20 shrink-0 rounded-r bg-ground lg:w-28"><span className="block h-full rounded-r" style={{ width: `${(100 * n(m.part_de_voix_pct)) / max}%`, background: lo ? "#eb6834" : "#b8bfca" }} /></span><span className="tabular-nums">{pct(n(m.part_de_voix_pct))}</span></span></td>
+                <td className="py-2.5 pr-3"><span className="flex items-center gap-2"><span className="h-3 w-20 shrink-0 rounded-r bg-ground lg:w-28"><span className="block h-full rounded-r" style={{ width: `${(100 * n(m.part_de_voix_pct)) / max}%`, background: lo ? "#a9471f" : "#cfc3b6" }} /></span><span className="tabular-nums">{pct(n(m.part_de_voix_pct))}</span></span></td>
                 <td className="py-2.5 pr-3 text-right tabular-nums">{compact(n(m.videos))}</td>
                 <td className="py-2.5 pr-3 text-right tabular-nums">{compact(n(m.vues))}</td>
                 <td className="py-2.5 pr-3 text-right tabular-nums">{a === null ? <span className="text-ink-faint" title="moins de 10 avis : pas assez pour un pourcentage">—</span> : `${a} %`}</td>
@@ -498,7 +516,7 @@ function Resume({ D, focus, f }: { D: DashboardPrisme["donnees"]; focus: string;
     fort && `Point fort : « ${fort.aspect} » (${fort.positif} éloges${fort.negatif ? `, ${fort.negatif} critiques` : ""}).`,
     faible && `Point à surveiller : « ${faible.aspect} » (${faible.negatif} critiques sur ${faible.negatif + faible.positif}).`,
   ].filter(Boolean);
-  return <p className="rounded-[14px] border border-[#eb6834]/30 bg-paper px-5 py-4 text-[17px] leading-relaxed text-ink">{phrases.join(" ")}</p>;
+  return <p className={`${SERIF} rounded-[14px] border bg-paper px-5 py-4 text-[22px] font-medium leading-snug text-ink`} style={{ borderColor: "rgb(185 138 94 / 0.45)" }}>{phrases.join(" ")}</p>;
 }
 
 /** Opportunités pour un nouveau produit : ce que les gens demandent, ce qu'on reproche aux concurrents, ce qu'on aime déjà chez nous. */
@@ -510,18 +528,18 @@ function Opportunites({ D, focus, f }: { D: DashboardPrisme["donnees"]; focus: s
   const nom = focus === "groupe" ? "le groupe L'Oréal" : focus;
   const carte = (icone: React.ReactNode, titre: string, aide: string, contenu: React.ReactNode) => (
     <div className="min-w-0 rounded-[14px] border border-line bg-paper p-4">
-      <h4 className="flex items-center gap-2 text-[16px] font-semibold">{icone}{titre}</h4>
+      <h4 className={`${SERIF} flex items-center gap-2 text-[21px] font-semibold leading-tight`}>{icone}{titre}</h4>
       <p className="mb-3 mt-0.5 text-[13.5px] text-ink-soft">{aide}</p>{contenu}
     </div>
   );
   const vide = <p className="text-[14.5px] text-ink-faint">Pas assez de commentaires sur ce point.</p>;
   return (
     <div className="grid gap-4 lg:grid-cols-3">
-      {carte(<MessageCircleQuestion size={18} className="text-[#2a78d6]" aria-hidden />, "Ce que les gens demandent", "Demandes repérées par l'IA dans les commentaires du sujet (toutes marques).",
+      {carte(<MessageCircleQuestion size={18} className="text-[#7a5a44]" aria-hidden />, "Ce que les gens demandent", "Demandes repérées par l'IA dans les commentaires du sujet (toutes marques).",
         D.demandes?.length ? <ul className="space-y-2">{D.demandes.slice(0, 5).map((x) => <li key={String(x.demande)} className="flex justify-between gap-3 text-[15px]"><span>« {String(x.demande)} »</span>{n(x.fois) > 1 && <span className="shrink-0 tabular-nums text-ink-faint">×{n(x.fois)}</span>}</li>)}</ul> : vide)}
-      {carte(<ThumbsDown size={18} className="text-bad" aria-hidden />, "Ce qu'on reproche aux concurrents", "Aspects critiqués dans au moins 30 % des avis (3 critiques minimum).",
+      {carte(<ThumbsDown size={18} className="text-[#a9471f]" aria-hidden />, "Ce qu'on reproche aux concurrents", "Aspects critiqués dans au moins 30 % des avis (3 critiques minimum).",
         faibles.length ? <ul className="space-y-2">{faibles.map((a) => <li key={a.marque + a.aspect} className="text-[15px]"><b>{a.marque}</b> · {a.aspect} <span className="text-ink-faint">({a.negatif} critiques sur {a.negatif + a.positif})</span></li>)}</ul> : vide)}
-      {carte(<Lightbulb size={18} className="text-[#c4501f]" aria-hidden />, `Ce qu'on aime déjà chez ${nom}`, "Aspects les plus salués : à garder dans le nouveau produit.",
+      {carte(<Lightbulb size={18} className="text-[#a9471f]" aria-hidden />, `Ce qu'on aime déjà chez ${nom}`, "Aspects les plus salués : à garder dans le nouveau produit.",
         forts.length ? <ul className="space-y-2">{forts.map((a) => <li key={a.aspect} className="text-[15px]">{a.aspect} <span className="text-ink-faint">({a.positif} éloges{a.negatif ? `, ${a.negatif} critiques` : ""})</span></li>)}</ul> : vide)}
     </div>
   );
@@ -566,6 +584,7 @@ export function PrismeDashboard({ d, chargerProduit, chargerFocus }: { d: Dashbo
   }, [produit, charger]);
 
   const pdv = D.marques.filter((m) => n(m.part_de_voix_pct) > 0).slice(0, 8);
+  const heros = D.videos.find((v) => v.image);
   const tendances = [
     ...D.montantes.slice(0, 5).map((m) => ({ nom: String(m.recherche), valeur: n(m.hausse) >= 1000 ? "en très forte hausse" : `+${new Intl.NumberFormat("fr-FR").format(n(m.hausse))} %`, detail: "sur Google, 12 mois" })),
   ];
@@ -574,36 +593,46 @@ export function PrismeDashboard({ d, chargerProduit, chargerFocus }: { d: Dashbo
 
   return (
     <div className="w-full min-w-0 space-y-8 [contain:inline-size]">
-      {/* En-tête */}
-      <header className="relative overflow-hidden rounded-[20px] bg-night p-6 text-white md:p-9">
-        <div aria-hidden className="pointer-events-none absolute -right-20 -top-28 h-80 w-80 rounded-full opacity-45 blur-3xl" style={{ background: "radial-gradient(circle, #F2A33A, transparent 65%)" }} />
-        <p className="relative text-[13px] font-semibold uppercase tracking-[0.1em] text-amber">Prisme · {DRAPEAU[d.veille.pays] ?? d.veille.pays} · « {d.veille.sujet} »</p>
-        <h2 className="relative mt-2 max-w-3xl text-[clamp(26px,3.6vw,40px)] font-semibold leading-[1.1] tracking-[-0.03em] text-balance">{d.titre}</h2>
-        <p className="relative mt-3 max-w-3xl text-[17px] leading-relaxed text-night-text">{d.agent.reponse}</p>
+      {/* En-tête éditorial : la vidéo n°1 en image, titre à empattements */}
+      <header className="relative isolate overflow-hidden rounded-[24px] text-white" style={{ background: ESPRESSO }}>
+        {heros && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={String(heros.image)} alt="" referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.style.display = "none"; }}
+            className="absolute inset-y-0 right-0 -z-10 h-full w-full object-cover opacity-55 md:w-[58%] md:opacity-90" />
+        )}
+        <div aria-hidden className="absolute inset-0 -z-10" style={{ background: `linear-gradient(90deg, ${ESPRESSO} 0%, ${ESPRESSO} 50%, rgb(27 20 17 / 0.9) 66%, rgb(27 20 17 / 0.35) 100%)` }} />
+        <div aria-hidden className="absolute inset-x-0 bottom-0 -z-10 h-1" style={{ background: `linear-gradient(90deg, ${BRONZE}, ${CARAMEL}, #e2c49a)` }} />
+        <div className="px-6 py-8 md:px-10 md:py-12">
+          <p className="text-[12.5px] font-semibold uppercase tracking-[0.28em]" style={{ color: "#e2c49a" }}>Prisme · {DRAPEAU[d.veille.pays] ?? d.veille.pays}</p>
+          <p className={`${SERIF} mt-3 text-[clamp(40px,7vw,84px)] font-semibold uppercase leading-[0.92] tracking-[0.01em]`}>{d.veille.sujet}</p>
+          <h2 className="mt-5 max-w-2xl text-[clamp(19px,2.2vw,24px)] font-medium leading-snug text-balance">{d.titre}</h2>
+          <p className="mt-3 max-w-2xl text-[16.5px] leading-relaxed" style={{ color: "#e9ddd1" }}>{d.agent.reponse}</p>
+          <p className="mt-6 text-[12.5px] uppercase tracking-[0.2em]" style={{ color: "#c8b4a2" }}>{compact(d.veille.videos)} vidéos · {compact(d.veille.commentaires)} commentaires · TikTok, Instagram, YouTube, Google</p>
+        </div>
       </header>
 
       {/* 1. MACRO : le marché en un coup d'œil */}
       <section className="space-y-4">
-        <h3 className="px-1 text-[22px] font-semibold tracking-[-0.02em]">Le marché en un coup d&apos;œil</h3>
+        <TitrePartie n="01" surtitre="Le marché">Le marché en un coup d&apos;œil</TitrePartie>
         <div className="grid gap-4 lg:grid-cols-3">
-          <CarteMacro icone={<Hash size={18} className="text-[#2a78d6]" aria-hidden />} titre="Hashtags les plus vus" mesure="Total des vues des vidéos qui utilisent le hashtag (génériques comme #fyp exclus)."
+          <CarteMacro icone={<Hash size={18} className="text-[#7a5a44]" aria-hidden />} titre="Hashtags les plus vus" mesure="Total des vues des vidéos qui utilisent le hashtag (génériques comme #fyp exclus)."
             lignes={D.hashtags.slice(0, 5).map((h) => ({ nom: String(h.hashtag), valeur: `${compact(n(h.vues))} vues`, detail: `${n(h.videos)} vidéos` }))} />
-          <CarteMacro icone={<ShoppingBag size={18} className="text-[#eb6834]" aria-hidden />} titre="Produits les plus cités" mesure="Classés par nombre de vidéos qui les citent, puis par vues. Orange : groupe L'Oréal. Cliquez pour la fiche."
+          <CarteMacro icone={<ShoppingBag size={18} className="text-[#a9471f]" aria-hidden />} titre="Produits les plus cités" mesure="Classés par nombre de vidéos qui les citent, puis par vues. Orange : groupe L'Oréal. Cliquez pour la fiche."
             lignes={D.produits.slice(0, 5).map((p) => ({ nom: String(p.produit), valeur: `${n(p.videos)} vidéo${n(p.videos) > 1 ? "s" : ""}`, detail: `${compact(n(p.vues))} vues`, accent: estGroupe(p.marque) }))} onClic={setPanneau} />
-          <CarteMacro icone={<TrendingUp size={18} className="text-ok" aria-hidden />} titre="Tendances qui montent" mesure="Recherches Google associées au sujet dont le volume a le plus augmenté sur 12 mois."
+          <CarteMacro icone={<TrendingUp size={18} className="text-[#4a382c]" aria-hidden />} titre="Tendances qui montent" mesure="Recherches Google associées au sujet dont le volume a le plus augmenté sur 12 mois."
             lignes={tendances} />
         </div>
       </section>
 
       {/* 2. Les vidéos qui font la tendance */}
       <section className="space-y-3">
-        <h3 className="px-1 text-[22px] font-semibold tracking-[-0.02em]">Les vidéos qui font la tendance</h3>
+        <TitrePartie n="02" surtitre="Tendances">Les vidéos qui font la tendance</TitrePartie>
         <Banderole videos={[...D.videos].sort((a, b) => Number(Boolean(b.image)) - Number(Boolean(a.image)))} />
       </section>
 
       {/* 3. Qui occupe la conversation, et comment ça évolue */}
       <section className="space-y-4">
-        <h3 className="px-1 text-[22px] font-semibold tracking-[-0.02em]">Les marques dans la conversation</h3>
+        <TitrePartie n="03" surtitre="Les marques">Les marques dans la conversation</TitrePartie>
         <Bloc titre="Qui occupe la conversation" mesure="Part de voix : part des vues des vidéos qui citent chaque marque (les publicités comptent à moitié).">
           <ul className="space-y-2.5" aria-label="Part de voix par marque">
             {pdv.map((m) => {
@@ -611,12 +640,12 @@ export function PrismeDashboard({ d, chargerProduit, chargerFocus }: { d: Dashbo
               return (
                 <li key={String(m.marque)} className="grid grid-cols-[minmax(0,150px)_1fr_70px] items-center gap-3 px-1.5 py-0.5">
                   <span className={`truncate text-[16px] ${lo ? "font-semibold text-ink" : "text-ink-soft"}`}>{String(m.marque)}</span>
-                  <span className="h-[16px]"><span className="block h-full rounded-r transition-[width] duration-500" style={{ width: `${(100 * n(m.part_de_voix_pct)) / max}%`, background: lo ? "#eb6834" : "#b8bfca" }} /></span>
+                  <span className="h-[16px]"><span className="block h-full rounded-r transition-[width] duration-500" style={{ width: `${(100 * n(m.part_de_voix_pct)) / max}%`, background: lo ? "#a9471f" : "#cfc3b6" }} /></span>
                   <span className="text-right text-[16px] font-semibold tabular-nums">{pct(n(m.part_de_voix_pct))}</span>
                 </li>
               );
             })}
-            <li className="flex gap-4 pt-1 text-[14px] text-ink-soft"><span><i className="mr-1.5 inline-block h-2.5 w-2.5 rounded-sm bg-[#eb6834]" />Groupe L&apos;Oréal</span><span><i className="mr-1.5 inline-block h-2.5 w-2.5 rounded-sm bg-[#b8bfca]" />Concurrents</span></li>
+            <li className="flex gap-4 pt-1 text-[14px] text-ink-soft"><span><i className="mr-1.5 inline-block h-2.5 w-2.5 rounded-sm bg-[#a9471f]" />Groupe L&apos;Oréal</span><span><i className="mr-1.5 inline-block h-2.5 w-2.5 rounded-sm bg-[#cfc3b6]" />Concurrents</span></li>
           </ul>
         </Bloc>
         <Evolution d={d} />
@@ -624,17 +653,17 @@ export function PrismeDashboard({ d, chargerProduit, chargerFocus }: { d: Dashbo
       </section>
 
       {/* 4. MICRO : la marque suivie, ses produits */}
-      <section className="space-y-4 rounded-[24px] border-2 border-[#eb6834]/30 bg-gradient-to-b from-amber-wash/70 to-transparent p-4 md:p-6">
+      <section className="space-y-4 rounded-[24px] border p-4 md:p-6" style={{ borderColor: "rgb(185 138 94 / 0.45)", background: `linear-gradient(180deg, ${NUDE} 0%, #faf6f1 55%, transparent 100%)` }}>
         <div className="flex flex-col gap-3 px-1 md:flex-row md:items-end md:justify-between">
           <div className="min-w-0">
-            <p className="text-[13px] font-semibold uppercase tracking-[0.1em] text-[#c4501f]">Analyse ciblée</p>
-            <h3 className="text-[24px] font-semibold tracking-[-0.02em]">{nomFocus} face à la concurrence</h3>
+            <p className="text-[12.5px] font-semibold uppercase tracking-[0.22em]" style={{ color: BRONZE }}>04 — Analyse ciblée</p>
+            <h3 className={`${SERIF} mt-1 text-[clamp(28px,3.4vw,38px)] font-semibold leading-[1.05]`}>{nomFocus} face à la concurrence</h3>
             <p className="mt-0.5 text-[14.5px] text-ink-soft">Choisissez la marque pour laquelle vous développez un produit : toute cette partie se recalcule pour elle.</p>
           </div>
           <label className="flex w-full shrink-0 flex-col gap-1 md:w-[300px]">
             <span className="text-[13px] font-semibold text-ink">Votre marque</span>
             <select value={focus} onChange={(e) => setFocus(e.target.value)} aria-label="Marque analysée"
-              className="h-12 w-full rounded-[12px] border-2 border-[#eb6834] bg-paper px-3 text-[16px] font-semibold text-ink outline-none focus:ring-2 focus:ring-[#eb6834]/40">
+              className="h-12 w-full rounded-[12px] border-2 bg-paper px-3 text-[16px] font-semibold text-ink outline-none focus:ring-2 focus:ring-[#b98a5e]/50" style={{ borderColor: BRONZE }}>
               <option value="groupe">Tout le groupe L&apos;Oréal</option>
               {marquesLoreal.map((m) => {
                 const x = D.marques.find((y) => y.marque === m);
@@ -649,24 +678,24 @@ export function PrismeDashboard({ d, chargerProduit, chargerFocus }: { d: Dashbo
         </Bloc>
 
         <div className="space-y-3">
-          <h4 className="px-1 text-[19px] font-semibold">Opportunités pour un nouveau produit</h4>
+          <h4 className={`${SERIF} px-1 text-[28px] font-semibold`}>Opportunités pour un nouveau produit</h4>
           <Opportunites D={D} focus={focus} f={f} />
         </div>
-        {erreurF && <p className="text-[15px] text-bad">{erreurF}</p>}
+        {erreurF && <p className="text-[15px] text-[#a9471f]">{erreurF}</p>}
         <div className="grid gap-5 lg:grid-cols-[minmax(0,380px)_1fr]">
           <Bloc titre={`Les produits ${focus === "groupe" ? "du groupe" : focus}`} mesure="Classés par nombre de vidéos qui les citent. Choisissez un produit : « ce qu'on en dit » et les commentaires passent sur ce produit.">
             {!f ? <Skeleton className="h-64" /> : f.produits.length ? (
               <ul className="space-y-1.5">
                 <li><button onClick={() => setProduit(null)} aria-pressed={!produit}
-                  className={`press w-full rounded-[10px] border px-3 py-2 text-left text-[15px] ${!produit ? "border-[#eb6834] bg-paper font-semibold" : "border-transparent hover:bg-ground"}`}>Tous les produits de {nomFocus}</button></li>
+                  className={`press w-full rounded-[10px] border px-3 py-2 text-left text-[15px] ${!produit ? "border-[#a9471f] bg-paper font-semibold" : "border-transparent hover:bg-ground"}`}>Tous les produits de {nomFocus}</button></li>
                 {f.produits.map((p) => {
                   const max = Math.max(1, ...f.produits.map((x) => n(x.videos))), actif = produit === p.produit;
                   return (
                     <li key={String(p.produit)}>
                       <button onClick={() => setProduit({ m: focus, p: String(p.produit) })} aria-pressed={actif}
-                        className={`press w-full rounded-[10px] border px-3 py-2 text-left ${actif ? "border-[#eb6834] bg-paper" : "border-transparent hover:bg-ground"}`}>
+                        className={`press w-full rounded-[10px] border px-3 py-2 text-left ${actif ? "border-[#a9471f] bg-paper" : "border-transparent hover:bg-ground"}`}>
                         <span className={`block truncate text-[15px] ${actif ? "font-semibold" : ""}`}>{String(p.produit)}</span>
-                        <span className="mt-1 flex items-center gap-2"><span className="h-2 flex-1 rounded-r bg-ground"><span className="block h-full rounded-r bg-[#eb6834]" style={{ width: `${(100 * n(p.videos)) / max}%` }} /></span><span className="text-[13px] tabular-nums text-ink-soft">{n(p.videos)} vidéo{n(p.videos) > 1 ? "s" : ""} · {compact(n(p.vues))} vues</span></span>
+                        <span className="mt-1 flex items-center gap-2"><span className="h-2 flex-1 rounded-r bg-ground"><span className="block h-full rounded-r bg-[#a9471f]" style={{ width: `${(100 * n(p.videos)) / max}%` }} /></span><span className="text-[13px] tabular-nums text-ink-soft">{n(p.videos)} vidéo{n(p.videos) > 1 ? "s" : ""} · {compact(n(p.vues))} vues</span></span>
                       </button>
                     </li>
                   );
@@ -680,7 +709,7 @@ export function PrismeDashboard({ d, chargerProduit, chargerFocus }: { d: Dashbo
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-[14px] border border-line bg-paper px-4 py-3">
                 <div className="min-w-0"><p className="text-[13px] text-ink-faint">Produit sélectionné</p><p className="truncate text-[17px] font-semibold">{produit}</p></div>
                 {detail ? <p className="text-[15px] tabular-nums text-ink-soft">{compact(detail.stats.vues)} vues · {detail.stats.videos} vidéos · {detail.stats.commentaires} commentaires</p> : <p className="text-[14px] text-ink-faint">Chargement…</p>}
-                <button onClick={() => setPanneau(produit)} className="press rounded-full bg-night px-4 py-1.5 text-[14px] font-medium text-white">Fiche complète</button>
+                <button onClick={() => setPanneau(produit)} className="press rounded-full bg-[#1b1411] px-4 py-1.5 text-[14px] font-medium text-white">Fiche complète</button>
               </div>
             )}
             <Bloc titre={`Ce qu'on dit de ${produit ?? nomFocus}`} mesure="Nombre de commentaires qui parlent de chaque aspect, classés par l'IA.">
@@ -693,7 +722,7 @@ export function PrismeDashboard({ d, chargerProduit, chargerFocus }: { d: Dashbo
         </div>
         {f && f.videos.length > 0 && !produit && (
           <div className="space-y-3">
-            <h4 className="px-1 text-[18px] font-semibold">Les vidéos qui parlent de {nomFocus}</h4>
+            <h4 className={`${SERIF} px-1 text-[26px] font-semibold`}>Les vidéos qui parlent de {nomFocus}</h4>
             <Banderole videos={f.videos} />
           </div>
         )}
@@ -710,11 +739,11 @@ export function PrismeDashboard({ d, chargerProduit, chargerFocus }: { d: Dashbo
             <p className="mb-3 text-[14px] text-ink-soft">(likes + commentaires) ÷ vues, en moyenne par vidéo de chaque format.</p>
             <ResponsiveContainer width="100%" height={240}>
               <BarChart data={D.formats.map((x) => ({ format: String(x.nom), engagement: Math.round(n(x.engagement_moyen) * 1000) / 10, videos: n(x.videos) }))} margin={{ left: -16 }}>
-                <CartesianGrid stroke="#eef0f3" vertical={false} />
+                <CartesianGrid stroke="#efe7de" vertical={false} />
                 <XAxis dataKey="format" tick={TICK} interval={0} />
                 <YAxis tick={TICK} unit=" %" />
                 <Tooltip {...TIP} formatter={(v, _k, p) => [`${v} % · ${(p.payload as Ligne).videos} vidéos`, "Engagement"]} />
-                <Bar isAnimationActive={false} dataKey="engagement" fill="#2a78d6" radius={[6, 6, 0, 0]} />
+                <Bar isAnimationActive={false} dataKey="engagement" fill="#7a5a44" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -724,7 +753,7 @@ export function PrismeDashboard({ d, chargerProduit, chargerFocus }: { d: Dashbo
             <ul className="space-y-1.5 text-[15px]">
               {D.recherche.slice(0, 8).map((r) => (
                 <li key={String(r.mot)} className="flex justify-between gap-3 border-b border-line-soft py-1"><span>{String(r.mot)}</span>
-                  <span className="tabular-nums">{n(r.niveau)} {r.evolution_pct != null && <b className={n(r.evolution_pct) >= 0 ? "text-ok" : "text-bad"}>{n(r.evolution_pct) >= 0 ? "+" : ""}{n(r.evolution_pct)} %</b>}</span></li>
+                  <span className="tabular-nums">{n(r.niveau)} {r.evolution_pct != null && <b className={n(r.evolution_pct) >= 0 ? "text-[#4a382c]" : "text-[#a9471f]"}>{n(r.evolution_pct) >= 0 ? "+" : ""}{n(r.evolution_pct)} %</b>}</span></li>
               ))}
             </ul>
           </div>

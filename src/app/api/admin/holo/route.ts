@@ -27,16 +27,17 @@ export const GET = handle(async () => {
 /** Équipe : met à jour les consignes d'un agent Holo (PATCH chez H Company). Réservé aux agents Lookout listés. */
 export const PATCH = handle(async (req: Request) => {
   await requireStaff();
-  const { name, instructions } = (await req.json()) as { name?: string; instructions?: string };
+  const { name, instructions, skills } = (await req.json()) as { name?: string; instructions?: string; skills?: string[] };
   if (!name || !AGENTS.includes(name)) throw new Error("Agent inconnu");
-  if (!instructions || instructions.length < 200) throw new Error("Consignes manquantes");
+  if (instructions !== undefined && instructions.length < 200) throw new Error("Consignes trop courtes");
+  if (instructions === undefined && !skills) throw new Error("Rien à modifier");
   const res = await fetch(`${config.hcompany.baseUrl}/agents/${encodeURIComponent(name)}`, {
     method: "PATCH",
     headers: { Authorization: `Bearer ${config.hcompany.apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ instructions }),
+    body: JSON.stringify({ ...(instructions !== undefined ? { instructions } : {}), ...(skills ? { skills } : {}) }),
     signal: AbortSignal.timeout(15_000),
   });
   const text = await res.text();
   if (!res.ok) throw new Error(`H Company ${res.status} : ${text.slice(0, 300)}`);
-  return { ok: true, name, length: instructions.length };
+  return { ok: true, name, length: instructions?.length ?? null, skills: skills ?? null };
 });

@@ -66,12 +66,12 @@ Chaque page porte un bouton qui lance son agent ; le suivi s'affiche sur la page
 
 | Agent | Produit | Exécution actuelle |
 |---|---|---|
-| 0 · Audit du catalogue | `catalog_products` | Agent externe (webhook) si configuré, sinon demande en attente |
+| 0 · Audit du catalogue | `catalog_products` | Webhook, sinon agent Holo `HAI_AGENT_0` (à créer) |
 | 1 · Import Circana | `circana_imports`, `circana_sales` | Edge function Supabase `import-circana` |
-| 2 · Enrichissement du marché | `market_products`, `market_shades`, `market_ingredients` | Agent externe ou H Company, sinon demande en attente |
-| 2.5 · Enrichissement sur sites web | `market_products` (complément) | Agent externe ou H Company, sinon demande en attente |
-| 3 · Analyse de croissance | `analyses`, `growth_opportunities` | Dans l'application |
-| 4 · Dashboard | `reports` | Dans l'application |
+| 2 · Enrichissement du marché | `market_products`, `market_shades`, `market_ingredients` | Agent Holo `agent-enrichissement-csv` (+ `shade-color-expert`, `product-image-finder`) |
+| 2.5 · Enrichissement sur sites web | `market_products` (complément) | Agent Holo `HAI_AGENT_2_5` (à créer) |
+| 3 · Analyse de croissance | `analyses`, `growth_opportunities` | Agent Holo `agent-analyse-concurrentielle` ; sans `HAI_API_KEY`, moteur intégré |
+| 4 · Dashboard | `reports` | Agent Holo `bench-dashboard-creation` (rapport JSON affiché par le site) ; sans `HAI_API_KEY`, Market Radar intégré |
 
 Les résultats produits par des agents externes (par exemple un Agent 3 au format `synthese` / `top_3` / `limites`,
 scores sur 10) sont aussi lus et normalisés.
@@ -97,7 +97,7 @@ une liste vide au lieu de casser la page. Migrations dans `supabase/migrations/`
 | `HF_TOKEN`, `HF_MODEL`, `PRISME_MODEL` | Hugging Face : analyse rédigée et Prisme (par défaut Qwen3-235B) |
 | `N8N_VEILLE_URL`, `N8N_VEILLE_KEY` | Lancement d'une collecte de social listening |
 | `AGENT_WEBHOOK_URL`, `AGENT_WEBHOOK_SECRET` | Agents externes 0, 2 et 2.5 |
-| `HAI_API_KEY`, `HAI_BASE_URL`, `HAI_AGENT`, `HAI_MAX_TIME_S` | H Company (computer use) |
+| `HAI_API_KEY`, `HAI_BASE_URL`, `HAI_AGENT`, `HAI_MAX_TIME_S`, `HAI_AGENT_0` … `HAI_AGENT_4` | H Company : agents Holo de chaque étape |
 | `LINKUP_API_KEY`, `LINKUP_DEPTH` | Découverte et extraction web |
 | `DEMO_LOGIN`, `DEMO_EMAIL`, `DEMO_PASSWORD` | Connexion démo |
 
@@ -106,8 +106,8 @@ Ne jamais committer ces valeurs : elles se saisissent dans Vercel (Settings > En
 ## État actuel
 
 - **Branché** : import Circana, analyse de croissance, opportunités, dashboard Market Radar, Prisme et son historique.
-- **Pas encore relié** : aucun `AGENT_WEBHOOK_URL` ni `HAI_API_KEY` en production, donc les agents 0, 2 et 2.5 restent
-  « en attente » quand on les lance.
+- **Agents Holo** : les agents 2, 3 et 4 sont reliés à leur agent H Company dès que `HAI_API_KEY` est renseigné dans Vercel ;
+  les agents 0 et 2.5 attendent leur agent dédié (`HAI_AGENT_0`, `HAI_AGENT_2_5`).
 - **Stripe** n'est pas branché : la page Offres est indicative.
 
 ## Démarrage local

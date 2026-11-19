@@ -17,7 +17,7 @@ L'application s'adapte au schéma déjà en place dans le projet Supabase. Seul 
 | `sites` | Sites surveillés (migration `migrations/20261118_sites.sql`). Méthode de collecte, parcours de computer use, dernier succès. Un site rencontré pendant une analyse est ajouté automatiquement (`source = 'discovered'`) |
 | `trend_posts` | Source prioritaire des tendances TikTok / Instagram si elle contient des publications |
 
-Non utilisées pour l'instant : `catalog_variants`, `trend_signals`, buckets `packshots`, `catalog-images`, `reports`,
+`catalog_variants` est une vue en lecture seule sur `catalog_products.variants` (pour les agents Holo). Non utilisées pour l'instant : `trend_signals`, buckets `packshots`, `catalog-images`, `reports`,
 fonctions `match_market_products` / `match_catalog_products` (prêtes pour une recherche par similarité).
 
 Absent du schéma, donc géré autrement : les journaux d'appels

@@ -1,6 +1,7 @@
 import "server-only";
 import { repo, selectAll } from "./repo";
 import { getAgentConfig, type AgentConfig } from "./settings";
+import { loadMarketTotals, loadSkuSales, type MarketTotal } from "./circana";
 import {
   brandKey,
   countryOf,
@@ -82,6 +83,10 @@ export interface Universe {
   market: MarketItem[];
   sales: SalesLine[];
   enrichment: { total: number; done: number; queued: number; failed: number; running: number };
+  /** Taille du marché publiée par Circana (tables circana_<format>_blush), par zone, format et année. */
+  marketTotals: MarketTotal[];
+  /** Origine des ventes : tables Top 50 SKU de l'Agent 1, ou ancienne table circana_sales. */
+  salesSource: "top50" | "circana_sales" | "aucune";
   duplicatesRemoved: number;
   generatedAt: string;
 }
@@ -131,16 +136,22 @@ function figuresFor(
 }
 
 export async function loadUniverse(): Promise<Universe> {
-  const [config, catalogRows, marketRows, shadeRows, ingRows, salesRows, jobRows, aliasRows] = await Promise.all([
+  const [config, catalogRows, marketRows, shadeRows, ingRows, legacySales, jobRows, aliasRows, skuSales, marketTotals] = await Promise.all([
     getAgentConfig(),
     selectAll<Raw>("catalog_products"),
     selectAll<Raw>("market_products"),
     selectAll<Raw>("market_shades", { order: ["position", "asc"] }),
     selectAll<Raw>("market_ingredients", { order: ["position", "asc"] }),
     selectAll<Raw>("circana_sales", { order: ["created_at", "desc"] }),
+    // Facultative : la table a été retirée de la base ; la progression se lit alors sur market_products.
     selectAll<Raw>("enrichment_jobs"),
     repo().select<Raw>("brand_aliases").catch(() => [] as Raw[]),
+    loadSkuSales(),
+    loadMarketTotals(),
   ]);
+  // Ventes : les tables Top 50 SKU de l'Agent 1 si elles sont remplies, sinon l'ancienne table circana_sales.
+  const salesRows: Raw[] = skuSales.length ? skuSales.map((s) => ({ ...s, import_id: "top50" } as unknown as Raw)) : legacySales;
+  const salesSource = skuSales.length ? "top50" : legacySales.length ? "circana_sales" : "aucune";
 
   const aliases: Record<string, string> = {};
   for (const a of aliasRows) if (str(a.alias) && str(a.canonical)) aliases[strip(String(a.alias))] = strip(String(a.canonical));
@@ -263,7 +274,8 @@ export async function loadUniverse(): Promise<Universe> {
     };
   });
 
-  const count = (st: string[]) => jobRows.filter((j) => st.includes(String(j.status))).length;
+    const jobs: Raw[] = jobRows.length ? jobRows : marketRows.map((m) => ({ status: m.status === "enriched" || m.enriched_at ? "completed" : m.status === "failed" ? "failed" : "queued" }));
+  const count = (st: string[]) => jobs.filter((j) => st.includes(String(j.status))).length;
   return {
     config,
     years,
@@ -271,13 +283,15 @@ export async function loadUniverse(): Promise<Universe> {
     market,
     sales,
     enrichment: {
-      total: jobRows.length,
+      total: jobs.length,
       done: count(["completed", "done", "succeeded"]),
       queued: count(["queued", "pending"]),
       running: count(["running", "processing", "in_progress"]),
       failed: count(["failed", "error"]),
     },
     duplicatesRemoved,
+    marketTotals,
+    salesSource,
     generatedAt: new Date().toISOString(),
   };
 }

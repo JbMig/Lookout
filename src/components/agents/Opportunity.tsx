@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { KIND_LABEL, priorityOf, type OpportunityKind, type Priority } from "@/lib/growth";
 import { ZONE_LABEL } from "@/lib/normalize";
+import { Packshot, type ProductRef } from "./kit";
 
 export interface OpportunityRow {
   id: string;
@@ -42,15 +43,41 @@ const ids = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typ
 
 const TONE: Record<Priority, string> = { haute: "bg-bad", moyenne: "bg-amber", basse: "bg-ink-faint" };
 
-export function OpportunityCard({ o, names, links = true }: { o: OpportunityRow; names: Map<string, string>; links?: boolean }) {
+export function OpportunityCard({ o, names, links = true }: { o: OpportunityRow; names: Map<string, ProductRef>; links?: boolean }) {
   const pr = priority(o);
   const conf = confidence(o);
   const client = ids(o.refs?.produit_client_ids);
   const rivals = ids(o.refs?.produit_concurrent_ids);
   const zone = oppZone(o);
-  const ref = (id: string, href: string) =>
-    links ? <Link key={id} href={href} className="rounded-full border border-line px-2.5 py-0.5 text-[12.5px] hover:border-ink-faint">{names.get(id) ?? "Produit"}</Link>
-      : <span key={id} className="rounded-full border border-line px-2.5 py-0.5 text-[12.5px]">{names.get(id) ?? "Produit"}</span>;
+  const known = (list: string[]) => list.filter((id) => names.has(id));
+  const ref = (id: string, href: string) => {
+    const p = names.get(id)!;
+    const body = (
+      <>
+        <Packshot src={p.image} alt="" size={32} />
+        <span className="min-w-0 text-left leading-tight">
+          <span className="block text-[11.5px] font-semibold uppercase tracking-[0.03em] text-ink-faint">{p.brand}</span>
+          <span className="block truncate text-[13px] font-medium">{p.name}</span>
+        </span>
+        {p.price && <span className="ml-auto pl-2 text-[12.5px] tabular-nums text-ink-soft">{p.price}</span>}
+      </>
+    );
+    const cls = "flex min-w-0 items-center gap-2.5 rounded-[10px] border border-line bg-paper py-1.5 pl-1.5 pr-3";
+    return links
+      ? <Link key={id} href={href} title="Voir la fiche" className={`press ${cls} hover:border-ink-faint`}>{body}</Link>
+      : <div key={id} className={cls}>{body}</div>;
+  };
+  const group = (label: string, list: string[], href: (id: string) => string, total: number) =>
+    total > 0 && (
+      <div>
+        <p className="mb-1.5 text-[12.5px] font-medium text-ink-faint">{label}</p>
+        {list.length ? (
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">{list.map((id) => ref(id, href(id)))}</div>
+        ) : (
+          <p className="text-[13px] text-ink-faint">{total} produit{total > 1 ? "s" : ""} cité{total > 1 ? "s" : ""}, introuvable{total > 1 ? "s" : ""} dans les données actuelles.</p>
+        )}
+      </div>
+    );
   return (
     <article className="grid gap-4 rounded-[14px] border border-line bg-paper p-5 md:grid-cols-[88px_minmax(0,1fr)]">
       <div className="flex items-center gap-3 md:flex-col md:items-start">
@@ -70,9 +97,9 @@ export function OpportunityCard({ o, names, links = true }: { o: OpportunityRow;
         {text(o.estimated_impact?.recommandation) && <p className="mt-2 text-sm"><b className="font-medium">Recommandation :</b> {text(o.estimated_impact?.recommandation)}</p>}
         {text(o.refs?.preuve) && <p className="mt-1 text-[12.5px] text-ink-faint">Preuve : {text(o.refs?.preuve)}</p>}
         {(client.length > 0 || rivals.length > 0) && (
-          <div className="mt-3 space-y-1.5 text-[12.5px]">
-            {client.length > 0 && <div className="flex flex-wrap items-center gap-1.5"><span className="text-ink-faint">Votre produit :</span>{client.map((id) => ref(id, `/catalog#p-${id}`))}</div>}
-            {rivals.length > 0 && <div className="flex flex-wrap items-center gap-1.5"><span className="text-ink-faint">Concurrents :</span>{rivals.map((id) => ref(id, `/competitors#c-${id}`))}</div>}
+          <div className="mt-4 space-y-3 border-t border-line pt-3">
+            {group(client.length > 1 ? "Vos produits concernés" : "Votre produit concerné", known(client), (id) => `/catalog#p-${id}`, client.length)}
+            {group("Concurrents de référence", known(rivals), (id) => `/competitors#c-${id}`, rivals.length)}
           </div>
         )}
       </div>

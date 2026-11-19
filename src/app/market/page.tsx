@@ -37,8 +37,22 @@ function Market() {
   if (!data) return error ? <ErrorText>{error}</ErrorText> : <PageSkeleton />;
 
   const toEur = (v: number, c: string) => eur(v, c);
-  const size = list.reduce((a, p) => a + (toEur(p.cur, p.salesCurrency) ?? 0), 0);
-  const sizePrev = list.reduce((a, p) => a + (toEur(p.prev, p.salesCurrency) ?? 0), 0);
+  // Taille du marché : chiffre publié par Circana quand les filtres le permettent, sinon la somme du Top 50 SKU.
+  const official = (year: number | null) => {
+    if (year === null || filters.min || filters.max || filters.brand !== "all") return null;
+    const rows = data.marketTotals.filter(
+      (t) => t.year === year && t.format === (filters.format === "all" ? "all" : filters.format) &&
+        (filters.zone === "all" || (filters.zone === "US" ? t.country === "US" : t.country !== "US")),
+    );
+    if (!rows.length) return null;
+    return rows.reduce((a, t) => a + (toEur(t.value, t.currency) ?? 0), 0);
+  };
+  const officialCur = official(data.years.cur);
+  const officialPrev = official(data.years.prev);
+  const top50Cur = list.reduce((a, p) => a + (toEur(p.cur, p.salesCurrency) ?? 0), 0);
+  const top50Prev = list.reduce((a, p) => a + (toEur(p.prev, p.salesCurrency) ?? 0), 0);
+  const size = officialCur ?? top50Cur;
+  const sizePrev = officialCur !== null ? officialPrev ?? 0 : top50Prev;
   const brands = aggregateBrands(list, toEur, data.config.brand);
   const top = [...list].sort((a, b) => (toEur(b.cur, b.salesCurrency) ?? 0) - (toEur(a.cur, a.salesCurrency) ?? 0)).slice(0, 15);
   const maxBrand = brands[0]?.cur || 1;
@@ -65,7 +79,7 @@ function Market() {
       ) : (
         <>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <Kpi label={`Taille du marché ${data.years.cur ?? ""}`} value={revenue(size, "EUR")} sub="produits suivis par Circana" />
+            <Kpi label={`Taille du marché ${data.years.cur ?? ""}`} value={revenue(size, "EUR")} sub={officialCur !== null ? `Circana · dont Top 50 SKU : ${revenue(top50Cur, "EUR")}` : "somme du Top 50 SKU Circana"} />
             <Kpi label="Évolution sur un an" value={<Delta value={growthPct(sizePrev, size)} />} sub={`${revenue(sizePrev, "EUR")} en ${data.years.prev ?? "N-1"}`} />
             <Kpi label="Marques" value={brands.length} />
             <Kpi label="Produits" value={list.length} />

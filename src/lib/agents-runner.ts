@@ -122,6 +122,23 @@ export async function listRuns(): Promise<AgentRun[]> {
 
 const SESSION_ID = /session ([0-9a-f-]{36})/i;
 
+type SessionH = { id?: string; status?: { status?: string; error?: string | null } | string; latest_answer?: unknown };
+const etat = (s: SessionH) => (typeof s.status === "string" ? s.status : s.status?.status);
+
+async function lireSession(id: string): Promise<SessionH | null> {
+  const res = await fetch(`${config.hcompany.baseUrl}/sessions/${id}`, { headers: { Authorization: `Bearer ${config.hcompany.apiKey}` }, signal: AbortSignal.timeout(8_000) });
+  return res.ok ? ((await res.json()) as SessionH) : null;
+}
+
+/** Dernière session lancée par l'orchestrateur (son sous-agent). */
+async function sousSession(parent: string): Promise<SessionH | null> {
+  const res = await fetch(`${config.hcompany.baseUrl}/sessions?parent_session_id=${parent}&size=5`, { headers: { Authorization: `Bearer ${config.hcompany.apiKey}` }, signal: AbortSignal.timeout(8_000) });
+  if (!res.ok) return null;
+  const items = ((await res.json()) as { items?: SessionH[] }).items ?? [];
+  const enfant = items[0];
+  return enfant?.id ? lireSession(enfant.id) : null;
+}
+
 /** Réponse de l'orchestrateur : { steps: [{ status, error }], pipeline_status } ; renvoie l'erreur d'une étape ratée. */
 function etapeEnEchec(answer: unknown): string | null {
   let a = answer;
@@ -148,11 +165,20 @@ export async function syncRuns(): Promise<AgentRun[]> {
   const updates = await Promise.all(open.map(async (r): Promise<AgentRun | null> => {
     const id = r.message.match(SESSION_ID)![1];
     try {
-      const res = await fetch(`${config.hcompany.baseUrl}/sessions/${id}`, { headers: { Authorization: `Bearer ${config.hcompany.apiKey}` }, signal: AbortSignal.timeout(8_000) });
-      if (!res.ok) return null;
-      const s = (await res.json()) as { status?: { status?: string; error?: string | null } | string; latest_answer?: unknown };
-      const status = typeof s.status === "string" ? s.status : s.status?.status;
-      const error = typeof s.status === "object" ? s.status?.error : null;
+      let s = await lireSession(id);
+      if (!s) return null;
+      let status = etat(s);
+      let error = typeof s.status === "object" ? s.status?.error : null;
+      // L'orchestrateur abandonne l'attente au bout de 20 min (« Client timeout ») alors que son sous-agent continue :
+      // on suit alors la session du sous-agent.
+      if (status && STOPPED.includes(status) && /timeout/i.test(error ?? "")) {
+        const enfant = await sousSession(id);
+        if (enfant) {
+          s = enfant;
+          status = etat(enfant);
+          error = typeof enfant.status === "object" ? enfant.status?.error : null;
+        }
+      }
       if (!status || (!DONE.includes(status) && !STOPPED.includes(status))) return null;
       const answer = typeof s.latest_answer === "string" ? s.latest_answer : s.latest_answer ? JSON.stringify(s.latest_answer) : "";
       // L'orchestrateur termine « completed » même quand son sous-agent a échoué : on lit ses étapes.

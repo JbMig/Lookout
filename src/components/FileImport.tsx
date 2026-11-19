@@ -86,7 +86,7 @@ export function FileImport({
             const f = e.dataTransfer.files?.[0];
             if (f) upload(f);
           }}
-          className={`mt-4 flex flex-col items-center rounded-[12px] border border-dashed px-5 py-7 text-center transition-colors duration-150 ${over ? "border-night bg-ground" : "border-[#d5d9e0]"}`}
+          className={`mt-4 flex flex-col items-center rounded-[12px] border border-dashed px-5 py-7 text-center transition-colors duration-150 ${over ? "border-night bg-ground" : "border-[#ddd2c5]"}`}
         >
           <UploadCloud size={22} className="text-ink-faint" aria-hidden />
           <p className="mt-2 text-sm text-ink-soft">Déposez le fichier ici ou</p>

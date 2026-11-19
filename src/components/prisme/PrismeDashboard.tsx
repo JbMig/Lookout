@@ -28,7 +28,7 @@ const n = (v: unknown) => (typeof v === "number" ? v : Number(v ?? 0) || 0);
 const compact = (v: number) => new Intl.NumberFormat("fr-FR", { notation: v >= 10000 ? "compact" : "standard", maximumFractionDigits: 1 }).format(v);
 const pct = (v: number) => `${new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 1 }).format(v)} %`;
 const TICK = { fontSize: 14, fill: "#4f5d73" };   // lisible à l'écran pendant l'oral
-const TIP = { contentStyle: { borderRadius: 10, border: "1px solid #e6dccf", fontSize: 14 }, cursor: { fill: "rgb(19 35 63 / 0.05)" } };
+const TIP = { contentStyle: { borderRadius: 10, border: "1px solid #e6dccf", fontSize: 14 }, cursor: { fill: "rgb(27 20 17 / 0.05)" } };
 const PLATEFORME: Record<string, string> = { tiktok: "TikTok", instagram: "Instagram", youtube: "YouTube" };
 
 function Bloc({ titre, mesure, children, className = "" }: { titre: string; mesure: string; children: React.ReactNode; className?: string }) {
@@ -74,7 +74,7 @@ function PopupProduit({ nom, charger, onClose }: { nom: string; charger: (p: str
   }, [nom, charger, onClose]);
   return (
     // Panneau latéral NON modal : la page reste visible et utilisable derrière (on garde le contexte).
-    <aside role="dialog" aria-modal="false" aria-label={`Fiche produit ${nom}`} className="fixed inset-y-0 right-0 z-50 w-full max-w-[560px] overflow-y-auto border-l border-line bg-paper shadow-[-24px_0_48px_-24px_rgb(19_35_63/0.35)]">
+    <aside role="dialog" aria-modal="false" aria-label={`Fiche produit ${nom}`} className="fixed inset-y-0 right-0 z-50 w-full max-w-[560px] overflow-y-auto border-l border-line bg-paper shadow-[-24px_0_48px_-24px_rgb(27_20_17/0.35)]">
       <div>
         <div className="relative">
           <div className="relative aspect-[16/7] bg-gradient-to-br from-[#1b1411] via-[#4a382c] to-[#a9471f]">
@@ -313,7 +313,7 @@ function Banderole({ videos }: { videos: Ligne[] }) {
   const carte = (v: Ligne, i: number, dup = false) => (
     <a key={`${dup ? "d" : ""}${i}`} href={String(v.url)} target="_blank" rel="noopener noreferrer" aria-hidden={dup || undefined} tabIndex={dup ? -1 : undefined}
       onClick={(e) => { const id = v.plateforme === "tiktok" ? idTikTok(v.url) : null; if (id) { e.preventDefault(); setLecture(id); } }}
-      className="group relative flex w-[260px] shrink-0 flex-col overflow-hidden rounded-[14px] border border-line bg-paper transition hover:-translate-y-0.5 hover:border-[#b98a5e] hover:shadow-[0_10px_24px_-14px_rgb(19_35_63/0.45)]">
+      className="group relative flex w-[260px] shrink-0 flex-col overflow-hidden rounded-[14px] border border-line bg-paper transition hover:-translate-y-0.5 hover:border-[#b98a5e] hover:shadow-[0_10px_24px_-14px_rgb(27_20_17/0.45)]">
       <div className="relative aspect-video w-full overflow-hidden bg-gradient-to-br from-[#1b1411] via-[#4a382c] to-[#a9471f]">
         <span className="absolute inset-0 grid place-items-center text-sm font-semibold uppercase tracking-[0.12em] text-white/70">{PLATEFORME[String(v.plateforme)] ?? String(v.plateforme)}</span>
         {Boolean(v.image) && (

@@ -6,7 +6,7 @@ import type { MarqueReseaux, Reseaux } from "@/lib/reseaux";
 
 const compact = (v: number) => new Intl.NumberFormat("fr-FR", { notation: v >= 10000 ? "compact" : "standard", maximumFractionDigits: 1 }).format(v);
 const TICK = { fontSize: 14, fill: "#4f5d73" };
-const TIP = { contentStyle: { borderRadius: 10, border: "1px solid #e6dccf", fontSize: 13 }, cursor: { fill: "rgb(19 35 63 / 0.05)" } };
+const TIP = { contentStyle: { borderRadius: 10, border: "1px solid #e6dccf", fontSize: 13 }, cursor: { fill: "rgb(27 20 17 / 0.05)" } };
 const PF: Record<string, string> = { tiktok: "TikTok", instagram: "Instagram", youtube: "YouTube" };
 type Filtre = "toutes" | "loreal" | "concurrents";
 

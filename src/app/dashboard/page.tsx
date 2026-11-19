@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { ChevronRight, Link2 } from "lucide-react";
 import { api, fmtDate } from "@/lib/client";
 import { Private } from "@/components/Session";
-import { AgentButton } from "@/components/agents/kit";
+import { AgentButton, SettingsBanner } from "@/components/agents/kit";
 import { Card, Empty, ErrorText, PageHeader, Skeleton } from "@/components/ui";
 
 interface Item { id: string; title: string; createdAt: string; shared: boolean; kind: "agents" | "legacy" }
@@ -34,6 +34,7 @@ function Dashboards() {
         meta={<span>Marché, catalogue, prix, variantes, composition et opportunités, à partager en un lien</span>}
         actions={<AgentButton agent="4" label="Générer le dashboard" onDone={(run) => run.link && router.push(run.link)} />}
       />
+      <SettingsBanner />
       <ErrorText>{error}</ErrorText>
       {!items ? (
         <div className="space-y-2">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-14" />)}</div>

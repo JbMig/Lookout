@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { BarChart3, FileUp, Globe2, LayoutDashboard, Lightbulb, LogOut, Menu, Package, Radar, Settings2, ShieldCheck, Swords, UserRound, Workflow, X, LineChart } from "lucide-react";
+import { BarChart3, FileUp, Globe2, LayoutDashboard, Lightbulb, LogOut, Menu, Package, Radar, Settings2, ShieldCheck, Swords, UserRound, X, LineChart } from "lucide-react";
 import { Logo } from "./Logo";
 import { useSession } from "./Session";
 
@@ -31,8 +31,7 @@ function Rail({ onNavigate }: { onNavigate?: () => void }) {
     router.push("/login");
   }
 
-  const groups: { title: string | null; links: { href: string; label: string; icon: typeof Workflow }[] }[] = [
-    { title: null, links: [{ href: "/pipeline", label: "Pipeline", icon: Workflow }] },
+  const groups: { title: string | null; links: { href: string; label: string; icon: typeof Settings2 }[] }[] = [
     {
       title: "Données",
       links: [

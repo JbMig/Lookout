@@ -7,8 +7,8 @@ const schema = z.object({
   brand: z.string().trim().min(1, "Indiquez la marque").max(120),
   zone: z.enum(["US", "FR", "EU"]),
   category: z.string().trim().min(1, "Choisissez une catégorie").max(60),
-  formats: z.array(z.enum(["liquide", "compact", "creme", "stick"])).max(4),
-  startUrl: z.string().trim().url("L'URL de départ doit commencer par https://").max(500).or(z.literal("")),
+  formats: z.array(z.enum(["liquide", "compact", "creme", "stick"])).min(1, "Cochez au moins un format connu").max(4),
+  startUrl: z.string().trim().min(1, "Indiquez l'URL de départ").url("L'URL de départ doit commencer par https://").max(500),
 });
 
 /** Configuration des agents (marque, zone, catégorie, formats, URL de départ). */

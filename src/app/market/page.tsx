@@ -1,7 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
 import { Private } from "@/components/Session";
-import { AgentButton, FilterBar, Kpi, NO_FILTERS, Packshot, growthPct, revenue, useEur, useFiltered, useUniverse } from "@/components/agents/kit";
+import { AgentButton, FilterBar, SettingsBanner, Kpi, NO_FILTERS, Packshot, growthPct, revenue, useEur, useFiltered, useUniverse } from "@/components/agents/kit";
 import { Card, CardHead, Delta, Empty, ErrorText, PageHeader, PageSkeleton } from "@/components/ui";
 import { ZONE_LABEL, formatLabel } from "@/lib/normalize";
 import { aggregateBrands, aggregateProducts } from "@/lib/market-view";
@@ -56,6 +56,7 @@ function Market() {
           </div>
         }
       />
+      <SettingsBanner />
       <Progress u={data} />
       <FilterBar value={filters} onChange={setFilters} />
       {(filters.min || filters.max) && <p className="text-[13px] text-ink-faint">Filtre de prix : seuls les {priced} produits dont le prix est connu sont comptés.</p>}

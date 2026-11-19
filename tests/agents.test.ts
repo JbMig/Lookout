@@ -73,7 +73,7 @@ describe("Agent 3 intégré", () => {
     expect(kinds).toContain("price_gap");
     expect(kinds).toContain("shade_gap");
     expect(kinds).toContain("format_gap");
-    expect(kinds).toContain("ingredient_gap");
+    expect(kinds).toContain("ingredient");
     for (const o of opportunities) {
       expect(o.score).toBeGreaterThanOrEqual(0);
       expect(o.score).toBeLessThanOrEqual(1);

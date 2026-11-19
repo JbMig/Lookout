@@ -5,14 +5,14 @@
 import { formatLabel, ZONE_LABEL, strip, type Format, type Zone } from "./normalize";
 import type { CatalogItem, MarketItem, Universe } from "./universe";
 
-export type OpportunityKind = "price_gap" | "format_gap" | "shade_gap" | "ingredient_gap";
+export type OpportunityKind = "price_gap" | "format_gap" | "shade_gap" | "ingredient";
 export type Priority = "haute" | "moyenne" | "basse";
 
 export const KIND_LABEL: Record<OpportunityKind, string> = {
   price_gap: "Prix",
   format_gap: "Format",
   shade_gap: "Teintes",
-  ingredient_gap: "Ingrédient",
+  ingredient: "Ingrédient",
 };
 
 export const priorityOf = (score: number): Priority => (score >= 0.7 ? "haute" : score >= 0.4 ? "moyenne" : "basse");
@@ -174,7 +174,7 @@ export function computeGrowth(u: Universe, zoneFilter?: string | null): { analys
   for (const i of ingredients.filter((x) => !x.client && x.share >= 0.3).slice(0, 4)) {
     const score = round(clamp(i.share * 0.9));
     opportunities.push({
-      kind: "ingredient_gap",
+      kind: "ingredient",
       title: `${i.name} : présent dans ${Math.round(i.share * 100)} % des produits concurrents en croissance`,
       description: `Ingrédient mis en avant par ${i.ids.length} produits dont les ventes progressent, absent de la composition de votre catalogue.`,
       score,

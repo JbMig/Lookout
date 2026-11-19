@@ -26,7 +26,9 @@ export type Table =
   | "growth_opportunities"
   | "trend_posts"
   | "trend_signals"
-  | "sites";
+  | "sites"
+  | "app_settings"
+  | "brand_aliases";
 
 type Row = Record<string, unknown> & { id: string };
 
@@ -36,6 +38,7 @@ export interface Query {
   gte?: [string, string];
   order?: [string, "asc" | "desc"];
   limit?: number;
+  offset?: number;
 }
 
 export interface Repo {
@@ -61,7 +64,8 @@ class SupabaseRepo implements Repo {
     if (q.in) req = req.in(q.in[0], q.in[1] as string[]);
     if (q.gte) req = req.gte(q.gte[0], q.gte[1]);
     if (q.order) req = req.order(q.order[0], { ascending: q.order[1] === "asc" });
-    if (q.limit) req = req.limit(q.limit);
+    if (q.offset !== undefined && q.limit) req = req.range(q.offset, q.offset + q.limit - 1);
+    else if (q.limit) req = req.limit(q.limit);
     const { data, error } = await req;
     if (error) throw new Error(`${table}: ${error.message}`);
     return (data ?? []) as T[];
@@ -163,7 +167,7 @@ class LocalRepo implements Repo {
           return (x < y ? -1 : x > y ? 1 : 0) * (dir === "asc" ? 1 : -1);
         });
       }
-      if (q.limit) rows = rows.slice(0, q.limit);
+      if (q.limit) rows = rows.slice(q.offset ?? 0, (q.offset ?? 0) + q.limit);
       return rows as unknown as T[];
     });
   }
@@ -224,4 +228,15 @@ let instance: Repo | null = null;
 export function repo(): Repo {
   if (!instance) instance = isDemo.db ? new LocalRepo() : new SupabaseRepo();
   return instance;
+}
+
+/** Lit toutes les lignes d'une table par pages de 1 000 (limite de l'API Supabase). */
+export async function selectAll<T>(table: Table, q: Omit<Query, "limit" | "offset"> = {}, max = 50_000): Promise<T[]> {
+  const out: T[] = [];
+  for (let offset = 0; offset < max; offset += 1000) {
+    const page = await repo().select<T>(table, { ...q, limit: 1000, offset });
+    out.push(...page);
+    if (page.length < 1000) break;
+  }
+  return out;
 }

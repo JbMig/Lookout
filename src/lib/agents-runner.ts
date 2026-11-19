@@ -87,10 +87,12 @@ async function importHolo(cfg: AgentConfig, p: Record<string, unknown>) {
  */
 const ORCHESTRATOR = process.env.HAI_ORCHESTRATOR || "ochestrateur-pipeline";
 
-function routage(cible: string, brief: string): string {
+function routage(cible: string, brief: string, formats: string[] = []): string {
   return [
     `MODE ROUTAGE (prioritaire sur le déroulé complet du pipeline) : n'exécute qu'UNE seule étape.`,
-    `Délègue via h/swarm au sous-agent « ${cible} » le brief ci-dessous, sans le modifier ni le résumer.`,
+    formats.length
+      ? `Audit découpé : délègue via h/swarm au sous-agent « ${cible} » une fois par format, l'un après l'autre (${formats.join(", ")}), avec le brief ci-dessous suivi de la ligne « Format : <format> ». Un dépassement de 20 minutes n'est pas un échec : passe au format suivant sans relancer.`
+      : `Délègue via h/swarm au sous-agent « ${cible} » le brief ci-dessous, sans le modifier ni le résumer.`,
     `N'appelle aucun autre sous-agent et ne fais aucun travail toi-même. Attends son statut terminal,`,
     `puis retourne sa réponse finale telle quelle. S'il échoue, retourne son erreur exacte.`,
     "",
@@ -99,13 +101,13 @@ function routage(cible: string, brief: string): string {
   ].join("\n");
 }
 
-async function holoSession(name: string, message: string) {
+async function holoSession(name: string, message: string, formats: string[] = []) {
   const direct = process.env.HAI_DIRECT === "1";
   const agent = direct ? name : ORCHESTRATOR;
   const res = await fetch(`${config.hcompany.baseUrl}/sessions`, {
     method: "POST",
     headers: { Authorization: `Bearer ${config.hcompany.apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ agent, messages: direct ? message : routage(name, message), max_time_s: Math.max(config.hcompany.maxTimeS, 2400) }),
+    body: JSON.stringify({ agent, messages: direct ? message : routage(name, message, formats), max_time_s: Math.max(config.hcompany.maxTimeS, formats.length ? 1500 * formats.length : 2400) }),
     signal: AbortSignal.timeout(30_000),
   });
   if (!res.ok) throw new Error(`H Company (${agent}) ${res.status} : ${(await res.text().catch(() => "")).slice(0, 160)}`);
@@ -256,7 +258,9 @@ async function external(agent: AgentId, cfg: AgentConfig, params: Record<string,
     const name = HOLO[agent];
     const extra = SESSION[agent] ? [SESSION[agent]!(cfg)] : [];
     if (agent === "2.5") extra.push(await suivis(cfg));
-    const s = name ? await holoSession(name, holoParams(cfg, extra)) : await holoSession(config.hcompany.agent, task);
+    // Agent 0 : un passage par format, pour que chaque passage tienne dans les 20 min d'attente de l'orchestrateur.
+    const formats = agent === "0" ? (cfg.formats.length ? cfg.formats : ["liquide", "compact", "creme", "stick"]) : [];
+    const s = name ? await holoSession(name, holoParams(cfg, extra), formats) : await holoSession(config.hcompany.agent, task);
     return { status: "started", via: "h-company", message: `Agent Holo ${s.via} lancé (session ${s.id}).`, link: s.agent_view_url ?? null };
   }
   return {

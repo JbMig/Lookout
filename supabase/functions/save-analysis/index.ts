@@ -56,6 +56,34 @@ function opportunite(o: Record<string, unknown>, analysisId: string): { ligne?: 
   } };
 }
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function existants(table: string, ids: string[]): Promise<Set<string>> {
+  const valides = ids.filter((i) => UUID.test(i));
+  if (!valides.length) return new Set();
+  const lignes = await sb(`/rest/v1/${table}?select=id&id=in.(${valides.join(",")})`) as { id: string }[];
+  return new Set(lignes.map((l) => l.id));
+}
+
+/** Retire de refs.produit_client_ids / produit_concurrent_ids les identifiants absents de la base ; renvoie ceux retirés. */
+async function nettoyerRefs(lignes: Record<string, unknown>[]): Promise<string[]> {
+  const liste = (v: unknown) => (Array.isArray(v) ? v.map((x) => String(x).trim()) : []);
+  const client = new Set<string>(), concurrent = new Set<string>();
+  for (const l of lignes) {
+    const r = l.refs as Record<string, unknown>;
+    liste(r.produit_client_ids).forEach((i) => client.add(i));
+    liste(r.produit_concurrent_ids).forEach((i) => concurrent.add(i));
+  }
+  const [okClient, okConcurrent] = await Promise.all([existants("catalog_products", [...client]), existants("market_products", [...concurrent])]);
+  const ignores = new Set<string>();
+  for (const l of lignes) {
+    const r = l.refs as Record<string, unknown>;
+    if ("produit_client_ids" in r) r.produit_client_ids = liste(r.produit_client_ids).filter((i) => okClient.has(i) || (ignores.add(i), false));
+    if ("produit_concurrent_ids" in r) r.produit_concurrent_ids = liste(r.produit_concurrent_ids).filter((i) => okConcurrent.has(i) || (ignores.add(i), false));
+  }
+  return [...ignores];
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: ENTETES });
   let p: Record<string, unknown>;
@@ -97,8 +125,11 @@ Deno.serve(async (req: Request) => {
       const r = opportunite(objet(o), analysisId);
       if (r.ligne) lignes.push(r.ligne); else rejetees.push({ index, raison: r.raison! });
     });
+    // Les identifiants cités dans refs doivent exister : l'agent en recopie parfois de travers (caractère manquant).
+    const ignores = await nettoyerRefs(lignes);
     if (lignes.length) await sb(`/rest/v1/growth_opportunities`, { method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify(lignes) });
     return repondre({ ok: true, analysis_id: analysisId, opportunites_ajoutees: lignes.length, rejetees,
+      ...(ignores.length ? { ids_ignores: ignores, note_ids: "Ces identifiants n'existent pas dans catalog_products / market_products : ils ont été retirés de refs." } : {}),
       suite: "Pour envoyer d'autres opportunités, rappelle la fonction avec { analysis_id, opportunites: [...] }." });
   } catch (erreur) {
     if (creee) await sb(`/rest/v1/analyses?id=eq.${creee}`, { method: "DELETE", headers: { Prefer: "return=minimal" } }).catch(() => null);

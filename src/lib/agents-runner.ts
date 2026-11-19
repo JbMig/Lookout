@@ -121,6 +121,17 @@ export async function listRuns(): Promise<AgentRun[]> {
 }
 
 const SESSION_ID = /session ([0-9a-f-]{36})/i;
+
+/** Réponse de l'orchestrateur : { steps: [{ status, error }], pipeline_status } ; renvoie l'erreur d'une étape ratée. */
+function etapeEnEchec(answer: unknown): string | null {
+  let a = answer;
+  if (typeof a === "string") { try { a = JSON.parse(a); } catch { return null; } }
+  const o = (a && typeof a === "object" ? a : {}) as { steps?: { status?: string; error?: string | null; summary?: string }[]; pipeline_status?: string };
+  const rate = (o.steps ?? []).find((x) => x.error || (x.status && !["completed", "skipped", "idle"].includes(x.status)));
+  if (rate) return String(rate.error || rate.summary || rate.status);
+  if (o.pipeline_status && ["failed", "partial"].includes(o.pipeline_status)) return `pipeline ${o.pipeline_status}`;
+  return null;
+}
 const DONE = ["completed", "idle"];
 const STOPPED = ["failed", "timed_out", "interrupted"];
 
@@ -144,10 +155,12 @@ export async function syncRuns(): Promise<AgentRun[]> {
       const error = typeof s.status === "object" ? s.status?.error : null;
       if (!status || (!DONE.includes(status) && !STOPPED.includes(status))) return null;
       const answer = typeof s.latest_answer === "string" ? s.latest_answer : s.latest_answer ? JSON.stringify(s.latest_answer) : "";
-      const ok = DONE.includes(status);
+      // L'orchestrateur termine « completed » même quand son sous-agent a échoué : on lit ses étapes.
+      const echec = etapeEnEchec(s.latest_answer);
+      const ok = DONE.includes(status) && !echec;
       const message = ok
         ? `${agentInfo(r.agent).name} terminé (session ${id}).${answer ? ` ${answer.replace(/\s+/g, " ").slice(0, 400)}` : ""}`
-        : `${agentInfo(r.agent).name} : session ${id} ${status}${error ? ` (${error})` : ""}.`;
+        : `${agentInfo(r.agent).name} : session ${id} ${echec ? "terminée en échec" : status}${error || echec ? ` (${(error || echec)!.slice(0, 400)})` : ""}.`;
       // Agent 4 en échec : la page du dashboard cesse d'attendre.
       const report = r.agent === "4" && r.link?.startsWith("/dashboard/") ? r.link.slice("/dashboard/".length) : null;
       if (!ok && report) await repo().update("reports", report, { status: "failed", error_message: message.slice(0, 500) }).catch(() => undefined);
@@ -326,6 +339,12 @@ export async function runAgent(agent: AgentId, params: Record<string, unknown>, 
   const cfg = await getAgentConfig();
   const missing = NEEDS_SETTINGS.includes(agent) ? missingSettings(cfg) : [];
   if (missing.length) throw new HttpError(400, `Complétez les réglages avant de lancer cet agent : ${missing.join(", ")}.`);
+  // H Company limite le compte à 3 sessions simultanées ; une demande en occupe 2 (orchestrateur + sous-agent), parfois 3.
+  // Un seul agent Holo à la fois, sinon le sous-agent ne peut pas démarrer.
+  if (!isDemo.hcompany) {
+    const enCours = (await syncRuns()).find((r) => r.via === "h-company" && r.status === "started" && Date.now() - Date.parse(r.at) < 2 * 3600_000);
+    if (enCours) throw new HttpError(409, `${agentInfo(enCours.agent).name} est déjà en cours (lancé à ${new Date(enCours.at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" })}). H Company n'accepte qu'un agent à la fois sur ce compte : relancez quand il aura fini.`);
+  }
   const base: AgentRun = {
     id: randomUUID(),
     agent,

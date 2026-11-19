@@ -8,6 +8,8 @@ import { FORMATS, inZone, type Format, type Zone } from "@/lib/normalize";
 import { StatusBadge } from "@/components/StatusBadge";
 import { btnAccent, controlCls } from "@/components/ui";
 import type { Universe } from "@/lib/universe";
+import type { AgentConfig } from "@/lib/settings";
+import { NEEDS_SETTINGS, missingSettings } from "@/lib/settings-check";
 
 /* ---------------- Devises (Frankfurter, côté navigateur) ---------------- */
 
@@ -48,6 +50,27 @@ export const revenue = (v: number | null | undefined, cur?: string | null) =>
 export const growthPct = (prev: number | null | undefined, cur: number | null | undefined) =>
   prev && cur !== null && cur !== undefined ? Math.round(((cur - prev) / prev) * 1000) / 10 : null;
 
+/* ---------------- Réglages ---------------- */
+
+let settingsCache: Promise<AgentConfig | null> | null = null;
+
+/** À appeler après l'enregistrement des réglages. */
+export function invalidateSettings() {
+  settingsCache = null;
+}
+
+/** Réglages manquants (null pendant le chargement). */
+export function useMissingSettings() {
+  const [missing, setMissing] = useState<string[] | null>(null);
+  useEffect(() => {
+    let alive = true;
+    settingsCache ??= api<{ config: AgentConfig }>("/api/settings").then((r) => r.config).catch(() => null);
+    settingsCache.then((c) => alive && setMissing(missingSettings(c)));
+    return () => { alive = false; };
+  }, []);
+  return missing;
+}
+
 /* ---------------- Agents ---------------- */
 
 export function useAgentRuns() {
@@ -77,6 +100,9 @@ export function AgentButton({
   onDone?: (run: AgentRun) => void;
 }) {
   const { runs, refresh } = useAgentRuns();
+  const missing = useMissingSettings();
+  const blocked = NEEDS_SETTINGS.includes(agent) && (missing === null || missing.length > 0);
+  const reason = disabled ?? (blocked ? (missing === null ? "Vérification des réglages…" : "Remplissez les réglages pour lancer cet agent.") : null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const last = runs?.find((r) => r.agent === agent) ?? null;
@@ -98,17 +124,17 @@ export function AgentButton({
 
   return (
     <div className="flex flex-col items-start gap-2 sm:items-end">
-      <button type="button" onClick={go} disabled={busy || !!disabled} title={disabled ?? undefined} className={`${btnAccent} disabled:cursor-not-allowed disabled:opacity-60`}>
+      <button type="button" onClick={go} disabled={busy || !!reason} title={reason ?? undefined} className={`${btnAccent} disabled:cursor-not-allowed disabled:opacity-60`}>
         {busy ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <Play size={15} aria-hidden />}
         {busy ? "Agent en cours…" : label}
       </button>
       <p className="line-clamp-2 max-w-[340px] text-[12.5px] text-ink-faint sm:text-right" aria-live="polite">
         {error ? <span className="text-bad">{error}</span>
-          : disabled ? disabled
+          : reason ? <>{reason}{blocked && missing?.length ? <> <Link href="/settings" className="font-medium text-ink underline underline-offset-4">Ouvrir les réglages</Link></> : null}</>
           : last ? <>Agent {info.id} · <span className="whitespace-nowrap">{fmtDate(last.at)}</span> · {last.message}</>
           : <>Agent {info.id} · jamais lancé depuis le site</>}
       </p>
-      {last && !error && !disabled && <StatusBadge status={last.status} />}
+      {last && !error && !reason && <StatusBadge status={last.status} />}
     </div>
   );
 }
@@ -257,12 +283,13 @@ export function Kpi({ label, value, sub }: { label: string; value: React.ReactNo
   );
 }
 
-/** Rappel des réglages manquants, avec lien. */
-export function NeedsSettings({ missing }: { missing: string[] }) {
-  if (!missing.length) return null;
+/** Bandeau tant que les réglages ne sont pas remplis : les agents restent bloqués. */
+export function SettingsBanner() {
+  const missing = useMissingSettings();
+  if (!missing?.length) return null;
   return (
     <p className="rounded-[10px] border border-amber/40 bg-amber/10 px-4 py-2.5 text-sm">
-      À compléter dans les <Link href="/settings" className="font-medium underline underline-offset-4">réglages</Link> : {missing.join(", ")}.
+      Remplissez d&apos;abord les <Link href="/settings" className="font-medium underline underline-offset-4">réglages</Link> : il manque {missing.join(", ")}. Les agents ne peuvent pas être lancés avant.
     </p>
   );
 }

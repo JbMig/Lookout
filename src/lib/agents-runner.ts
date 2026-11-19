@@ -8,6 +8,7 @@ import { computeGrowth } from "./growth";
 import { newShareToken } from "./reports";
 import { agentInfo, type AgentId, type AgentRun } from "./agent-runs";
 import { HttpError } from "./auth";
+import { NEEDS_SETTINGS, missingSettings } from "./settings-check";
 
 /**
  * Déclenchement des agents depuis les boutons du site.
@@ -151,7 +152,8 @@ async function dashboard(cfg: AgentConfig, userId: string | null, params: Record
 
 export async function runAgent(agent: AgentId, params: Record<string, unknown>, user: { userId: string; email: string } | null): Promise<AgentRun> {
   const cfg = await getAgentConfig();
-  if (agent === "0" && (!cfg.brand || !cfg.startUrl)) throw new HttpError(400, "Renseignez la marque et l'URL de départ dans les réglages avant de lancer l'audit.");
+  const missing = NEEDS_SETTINGS.includes(agent) ? missingSettings(cfg) : [];
+  if (missing.length) throw new HttpError(400, `Complétez les réglages avant de lancer cet agent : ${missing.join(", ")}.`);
   const base: AgentRun = {
     id: randomUUID(),
     agent,

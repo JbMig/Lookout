@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { ExternalLink, Sparkles } from "lucide-react";
 import { Private } from "@/components/Session";
-import { AgentButton, FilterBar, Kpi, NO_FILTERS, NeedsSettings, Packshot, Shaderange, TrendPill, growthPct, money, revenue, useFiltered, useHashScroll, useUniverse } from "@/components/agents/kit";
+import { AgentButton, FilterBar, Kpi, NO_FILTERS, SettingsBanner, Packshot, Shaderange, TrendPill, growthPct, money, revenue, useFiltered, useHashScroll, useUniverse } from "@/components/agents/kit";
 import { Card, Delta, Empty, ErrorText, PageHeader, PageSkeleton } from "@/components/ui";
 import { formatLabel, placeLabel } from "@/lib/normalize";
 import type { CatalogItem } from "@/lib/universe";
@@ -67,7 +67,6 @@ function Catalog() {
   useHashScroll(!!data);
   if (!data) return error ? <ErrorText>{error}</ErrorText> : <PageSkeleton />;
   const cfg = data.config;
-  const missing = [!cfg.brand && "la marque", !cfg.startUrl && "l'URL de départ"].filter(Boolean) as string[];
   const growing = list.filter((p) => p.trend === "croissance").length;
   const declining = list.filter((p) => p.trend === "declin").length;
 
@@ -76,9 +75,9 @@ function Catalog() {
       <PageHeader
         title="Votre catalogue"
         meta={<span>{cfg.brand || "Marque à définir"} · {cfg.category} · fiches produites par l&apos;audit du catalogue</span>}
-        actions={<AgentButton agent="0" label="Lancer l'audit" disabled={missing.length ? "Complétez les réglages pour lancer l'audit." : null} onDone={() => void reload()} />}
+        actions={<AgentButton agent="0" label="Lancer l'audit" onDone={() => void reload()} />}
       />
-      <NeedsSettings missing={missing} />
+      <SettingsBanner />
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Kpi label="Produits" value={list.length} sub={`sur ${data.catalog.length} au catalogue`} />
         <Kpi label="Teintes" value={list.reduce((a, p) => a + p.shadeCount, 0)} />

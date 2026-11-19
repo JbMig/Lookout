@@ -5,6 +5,8 @@ import { api } from "@/lib/client";
 import { Private } from "@/components/Session";
 import { Card, CardHead, ErrorText, Field, PageHeader, PageSkeleton, btnPrimary, inputCls } from "@/components/ui";
 import type { AgentConfig } from "@/lib/settings";
+import { invalidateSettings } from "@/components/agents/kit";
+import { missingSettings } from "@/lib/settings-check";
 
 const CATEGORIES = ["blush", "gloss", "rouge à lèvres", "mascara", "fond de teint", "highlighter", "bronzer", "fard à paupières"];
 const FORMAT_CHOICES = [
@@ -35,6 +37,7 @@ function Settings() {
       const r = await api<{ config: AgentConfig }>("/api/settings", { method: "PUT", json: cfg });
       setCfg(r.config);
       setSaved(true);
+      invalidateSettings();
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -44,7 +47,12 @@ function Settings() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Réglages" meta={<span>Les informations dont les agents ont besoin pour travailler sur votre marque.</span>} />
+      <PageHeader title="Réglages" meta={<span>Les informations dont les agents ont besoin pour travailler sur votre marque. Tous les champs sont obligatoires.</span>} />
+      {missingSettings(cfg).length > 0 && !saved && (
+        <p className="rounded-[10px] border border-amber/40 bg-amber/10 px-4 py-2.5 text-sm">
+          À remplir avant de lancer une analyse : {missingSettings(cfg).join(", ")}.
+        </p>
+      )}
       <form onSubmit={save} className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <Card>
           <CardHead title="Votre marque" sub="Utilisé par l'audit du catalogue (Agent 0), l'enrichissement (Agent 2) et l'analyse (Agent 3)." />
@@ -65,11 +73,11 @@ function Settings() {
               </select>
             </Field>
             <Field label="URL de départ" hint="La page de la catégorie sur le site officiel de la marque.">
-              <input type="url" value={cfg.startUrl} onChange={(e) => set({ startUrl: e.target.value })} placeholder="https://www.lancome-usa.com/makeup/face-makeup/blushes-and-bronzers/" className={inputCls} />
+              <input type="url" required value={cfg.startUrl} onChange={(e) => set({ startUrl: e.target.value })} placeholder="https://www.lancome-usa.com/makeup/face-makeup/blushes-and-bronzers/" className={inputCls} />
             </Field>
           </div>
           <fieldset className="mt-6">
-            <legend className="text-sm font-medium">Formats connus</legend>
+            <legend className="text-sm font-medium">Formats connus <span className="font-normal text-ink-faint">(au moins un)</span></legend>
             <p className="mt-0.5 text-[13px] text-ink-faint">Les formats que la marque propose déjà dans cette catégorie.</p>
             <div className="mt-3 flex flex-wrap gap-2">
               {FORMAT_CHOICES.map((f) => {

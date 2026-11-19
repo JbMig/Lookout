@@ -5,7 +5,7 @@ import { ArrowRight } from "lucide-react";
 import { fmtDate } from "@/lib/client";
 import { Private } from "@/components/Session";
 import { StatusBadge } from "@/components/StatusBadge";
-import { AgentButton, namesOf, useUniverse } from "@/components/agents/kit";
+import { AgentButton, SettingsBanner, namesOf, useUniverse } from "@/components/agents/kit";
 import { OpportunityCard } from "@/components/agents/Opportunity";
 import { ComparisonTable, FormatsTable, IngredientsList, useAnalyses } from "@/components/agents/AnalysisParts";
 import { Card, CardHead, Empty, ErrorText, PageHeader, PageSkeleton } from "@/components/ui";
@@ -26,6 +26,7 @@ function Analysis() {
         meta={<span>Comparaison de votre catalogue au marché : prix, formats, teintes et ingrédients</span>}
         actions={<AgentButton agent="3" label="Lancer l'analyse" onDone={() => { void load(); void u.reload(); }} />}
       />
+      <SettingsBanner />
       {running && <p className="rounded-[10px] border border-line bg-paper px-4 py-2.5 text-sm" role="status"><StatusBadge status="running" /> <span className="ml-2">Analyse lancée le {fmtDate(running.createdAt)}, la page se met à jour toute seule.</span></p>}
       {!r ? (
         <Empty title="Aucune analyse pour l'instant">Lancez l&apos;analyse une fois le catalogue audité et le marché enrichi.</Empty>

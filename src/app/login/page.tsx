@@ -155,7 +155,7 @@ function LoginForm() {
               </button>
             </p>
           )}
-          <p className="mt-10 text-[13px] text-ink-faint"><Link href="/offres" className="hover:text-ink hover:underline">Voir les offres</Link></p>
+          <p className="mt-10 flex gap-4 text-[13px] text-ink-faint"><Link href="/offres" className="hover:text-ink hover:underline">Voir les offres</Link><Link href="/mentions-legales" className="hover:text-ink hover:underline">Mentions légales</Link></p>
         </div>
       </div>
     </div>

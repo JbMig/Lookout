@@ -11,7 +11,7 @@ const initials = (name: string) =>
   name.includes("@") ? name.slice(0, 2).toUpperCase() : name.split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
 
 /** Pages sans le rail : connexion, offres, rapport partagé. */
-const BARE = ["/login", "/offres", "/share"];
+const BARE = ["/login", "/offres", "/share", "/mentions-legales"];
 
 function LogoChip({ className = "" }: { className?: string }) {
   return (
@@ -102,6 +102,7 @@ function Rail({ onNavigate }: { onNavigate?: () => void }) {
           <button onClick={logout} className="press mt-1 flex w-full items-center gap-3 rounded-[10px] px-3 py-2 text-[13px] font-semibold hover:bg-night-2 hover:text-white">
             <LogOut size={15} aria-hidden /> Se déconnecter
           </button>
+          <Link href="/mentions-legales" onClick={onNavigate} className="mt-2 block px-3 text-[12px] text-night-muted hover:text-white hover:underline">Mentions légales</Link>
         </div>
       )}
     </div>

@@ -146,7 +146,7 @@ function Report() {
       {shareUrl && (
         <div className="flex flex-wrap items-center gap-3 rounded-[12px] border border-line bg-paper px-4 py-3 text-sm">
           <Link2 size={16} className="text-ink-faint" aria-hidden />
-          <span className="text-ink-soft">Lien en lecture seule{copied ? ", copié dans le presse-papiers" : ""} :</span>
+          <span className="text-ink-soft">Lien en lecture seule, réservé aux comptes Lookout{copied ? ", copié dans le presse-papiers" : ""} :</span>
           <a className="break-all font-semibold hover:underline" href={shareUrl} target="_blank" rel="noreferrer">{shareUrl}</a>
         </div>
       )}

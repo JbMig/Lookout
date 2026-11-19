@@ -1,12 +1,13 @@
 import { handle } from "@/lib/http";
-import { HttpError } from "@/lib/auth";
+import { HttpError, requireUser } from "@/lib/auth";
 import { repo } from "@/lib/repo";
 import { reportBundle } from "@/lib/reports";
 import { dashboardMeta, isAgentDashboard } from "@/lib/dashboards";
 import type { ReportDbRow } from "@/lib/types";
 
-/** Lecture publique d'un rapport partagé (sans les données internes). */
+/** Lecture d'un rapport partagé, réservée aux comptes Lookout (données Circana sous licence). */
 export const GET = handle(async (_req: Request, ctx: RouteContext<"/api/share/[token]">) => {
+  await requireUser();
   const { token } = await ctx.params;
   if (!token || token.length < 16) throw new HttpError(404, "Lien invalide");
   const [report] = await repo().select<ReportDbRow>("reports", { eq: { share_slug: token } });

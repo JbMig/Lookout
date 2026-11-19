@@ -1,0 +1,584 @@
+{
+ "name": "Lookout · Veille social listening (par sujet)",
+ "nodes": [
+  {
+   "name": "Formulaire : nouvelle veille",
+   "type": "n8n-nodes-base.formTrigger",
+   "typeVersion": 2.2,
+   "position": [
+    0,
+    0
+   ],
+   "parameters": {
+    "formTitle": "Lookout · Nouvelle veille social listening",
+    "formDescription": "Ex. « blush de luxe », « mascara waterproof », « sérum vitamine C ». Résultats dans le dashboard Lookout (~15-30 min).",
+    "formFields": {
+     "values": [
+      {
+       "fieldLabel": "Sujet",
+       "placeholder": "blush de luxe",
+       "requiredField": true
+      },
+      {
+       "fieldLabel": "Pays",
+       "fieldType": "dropdown",
+       "fieldOptions": {
+        "values": [
+         {
+          "option": "FR"
+         },
+         {
+          "option": "US"
+         },
+         {
+          "option": "GB"
+         },
+         {
+          "option": "DE"
+         }
+        ]
+       },
+       "requiredField": true
+      },
+      {
+       "fieldLabel": "Sources",
+       "fieldType": "dropdown",
+       "requiredField": true,
+       "fieldOptions": {
+        "values": [
+         {
+          "option": "Complet (TikTok, Instagram, YouTube, Google)"
+         },
+         {
+          "option": "Économique (YouTube, Google : sans Apify)"
+         }
+        ]
+       }
+      },
+      {
+       "fieldLabel": "Budget Apify (USD)",
+       "fieldType": "number",
+       "placeholder": "1"
+      },
+      {
+       "fieldLabel": "Videos analysees en profondeur (images + audio)",
+       "fieldType": "number",
+       "placeholder": "0"
+      },
+      {
+       "fieldLabel": "Demande par",
+       "placeholder": "prénom (optionnel)"
+      }
+     ]
+    },
+    "responseMode": "onReceived",
+    "options": {
+     "respondWithOptions": {
+      "values": {
+       "formSubmittedText": "Veille lancée ✅ Les résultats arrivent dans le dashboard d'ici 15 à 30 minutes."
+      }
+     }
+    }
+   }
+  },
+  {
+   "name": "Chaque lundi 7h",
+   "type": "n8n-nodes-base.scheduleTrigger",
+   "typeVersion": 1.2,
+   "position": [
+    0,
+    220
+   ],
+   "parameters": {
+    "rule": {
+     "interval": [
+      {
+       "field": "cronExpression",
+       "expression": "0 7 * * 1"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "Veille hebdo (sujet par défaut)",
+   "type": "n8n-nodes-base.set",
+   "typeVersion": 3.4,
+   "position": [
+    220,
+    220
+   ],
+   "parameters": {
+    "mode": "manual",
+    "assignments": {
+     "assignments": [
+      {
+       "id": "Veille hebdo (sujet par défaut)-Sujet",
+       "name": "Sujet",
+       "value": "blush de luxe",
+       "type": "string"
+      },
+      {
+       "id": "Veille hebdo (sujet par défaut)-Pays",
+       "name": "Pays",
+       "value": "FR",
+       "type": "string"
+      },
+      {
+       "id": "Veille hebdo (sujet par défaut)-Budget Apify (USD)",
+       "name": "Budget Apify (USD)",
+       "value": "1",
+       "type": "string"
+      },
+      {
+       "id": "Veille hebdo (sujet par défaut)-Demande par",
+       "name": "Demande par",
+       "value": "planification hebdo",
+       "type": "string"
+      }
+     ]
+    },
+    "options": {}
+   }
+  },
+  {
+   "name": "Paramètres",
+   "type": "n8n-nodes-base.set",
+   "typeVersion": 3.4,
+   "position": [
+    440,
+    100
+   ],
+   "parameters": {
+    "mode": "manual",
+    "assignments": {
+     "assignments": [
+      {
+       "id": "Paramètres-sujet",
+       "name": "sujet",
+       "value": "={{ $json['Sujet'].trim() }}",
+       "type": "string"
+      },
+      {
+       "id": "Paramètres-pays",
+       "name": "pays",
+       "value": "={{ $json['Pays'] || 'FR' }}",
+       "type": "string"
+      },
+      {
+       "id": "Paramètres-budget",
+       "name": "budget",
+       "value": "={{ Math.min(Number($json['Budget Apify (USD)']) || 1, 3) }}",
+       "type": "number"
+      },
+      {
+       "id": "Paramètres-cerveau",
+       "name": "cerveau",
+       "value": "={{ Math.min(Number($json['Videos analysees en profondeur (images + audio)']) || 0, 20) }}",
+       "type": "number"
+      },
+      {
+       "id": "Paramètres-demande_par",
+       "name": "demande_par",
+       "value": "={{ $json['Demande par'] || 'formulaire' }}",
+       "type": "string"
+      },
+      {
+       "id": "Paramètres-veille_id",
+       "name": "veille_id",
+       "value": "={{ $now.toFormat('yyyyMMdd-HHmm') + '-' + Math.random().toString(36).slice(2, 6) }}",
+       "type": "string"
+      },
+      {
+       "id": "Paramètres-sources",
+       "name": "sources",
+       "value": "={{ String($json['Sources'] || '').startsWith('Économique') ? 'youtube,google_trends' : 'tiktok,instagram,youtube,google_trends' }}",
+       "type": "string"
+      }
+     ]
+    },
+    "options": {}
+   }
+  },
+  {
+   "name": "Lancer le job Hugging Face",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    660,
+    100
+   ],
+   "retryOnFail": true,
+   "maxTries": 3,
+   "waitBetweenTries": 5000,
+   "parameters": {
+    "method": "POST",
+    "url": "https://huggingface.co/api/jobs/RomaneIA13",
+    "authentication": "genericCredentialType",
+    "genericAuthType": "httpCustomAuth",
+    "sendBody": true,
+    "specifyBody": "json",
+    "jsonBody": "={{ JSON.stringify({ dockerImage: 'python:3.12-slim', command: ['bash', '-c', 'pip install -q -U huggingface_hub && hf download RomaneIA13/lookout-social --local-dir /app && bash /app/scripts/job_entry.sh'], arguments: [], environment: { SUJET: $('Paramètres').item.json.sujet, PAYS: $('Paramètres').item.json.pays, BUDGET: String($('Paramètres').item.json.budget), CERVEAU: String($('Paramètres').item.json.cerveau), VEILLE_ID: $('Paramètres').item.json.veille_id, DEMANDE_PAR: $('Paramètres').item.json.demande_par, SOURCES: $('Paramètres').item.json.sources }, flavor: 'cpu-basic', timeoutSeconds: 5400 }) }}",
+    "options": {}
+   },
+   "credentials": {
+    "httpCustomAuth": {
+     "id": "",
+     "name": "Lookout · HF Jobs"
+    }
+   }
+  },
+  {
+   "name": "Attendre 2 min",
+   "type": "n8n-nodes-base.wait",
+   "typeVersion": 1.1,
+   "position": [
+    880,
+    100
+   ],
+   "parameters": {
+    "amount": 2,
+    "unit": "minutes"
+   },
+   "webhookId": "lookout-attente"
+  },
+  {
+   "name": "État du job",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    1100,
+    100
+   ],
+   "retryOnFail": true,
+   "maxTries": 3,
+   "waitBetweenTries": 5000,
+   "parameters": {
+    "method": "GET",
+    "url": "=https://huggingface.co/api/jobs/RomaneIA13/{{ $('Lancer le job Hugging Face').item.json.id }}",
+    "authentication": "genericCredentialType",
+    "genericAuthType": "httpCustomAuth",
+    "options": {}
+   },
+   "credentials": {
+    "httpCustomAuth": {
+     "id": "",
+     "name": "Lookout · HF Jobs"
+    }
+   }
+  },
+  {
+   "name": "Terminé ?",
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2.2,
+   "position": [
+    1320,
+    100
+   ],
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "loose",
+      "version": 2
+     },
+     "conditions": [
+      {
+       "id": "Terminé ?-0",
+       "leftValue": "={{ $json.status.stage }}",
+       "rightValue": "COMPLETED",
+       "operator": {
+        "type": "string",
+        "operation": "equals"
+       }
+      },
+      {
+       "id": "Terminé ?-1",
+       "leftValue": "={{ $json.status.stage }}",
+       "rightValue": "ERROR",
+       "operator": {
+        "type": "string",
+        "operation": "equals"
+       }
+      },
+      {
+       "id": "Terminé ?-2",
+       "leftValue": "={{ $json.status.stage }}",
+       "rightValue": "CANCELED",
+       "operator": {
+        "type": "string",
+        "operation": "equals"
+       }
+      },
+      {
+       "id": "Terminé ?-3",
+       "leftValue": "={{ $json.status.stage }}",
+       "rightValue": "DELETED",
+       "operator": {
+        "type": "string",
+        "operation": "equals"
+       }
+      }
+     ],
+     "combinator": "or"
+    },
+    "options": {}
+   }
+  },
+  {
+   "name": "Réussi ?",
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2.2,
+   "position": [
+    1540,
+    0
+   ],
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "loose",
+      "version": 2
+     },
+     "conditions": [
+      {
+       "id": "Réussi ?-0",
+       "leftValue": "={{ $json.status.stage }}",
+       "rightValue": "COMPLETED",
+       "operator": {
+        "type": "string",
+        "operation": "equals"
+       }
+      }
+     ],
+     "combinator": "or"
+    },
+    "options": {}
+   }
+  },
+  {
+   "name": "Veille terminée",
+   "type": "n8n-nodes-base.set",
+   "typeVersion": 3.4,
+   "position": [
+    1760,
+    -100
+   ],
+   "parameters": {
+    "mode": "manual",
+    "assignments": {
+     "assignments": [
+      {
+       "id": "Veille terminée-veille_id",
+       "name": "veille_id",
+       "value": "={{ $('Paramètres').item.json.veille_id }}",
+       "type": "string"
+      },
+      {
+       "id": "Veille terminée-sujet",
+       "name": "sujet",
+       "value": "={{ $('Paramètres').item.json.sujet }}",
+       "type": "string"
+      },
+      {
+       "id": "Veille terminée-job",
+       "name": "job",
+       "value": "={{ 'https://huggingface.co/jobs/RomaneIA13/' + $json.id }}",
+       "type": "string"
+      },
+      {
+       "id": "Veille terminée-statut",
+       "name": "statut",
+       "value": "termine",
+       "type": "string"
+      }
+     ]
+    },
+    "options": {}
+   }
+  },
+  {
+   "name": "Encore une tentative ?",
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2.2,
+   "position": [
+    1760,
+    120
+   ],
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "loose",
+      "version": 2
+     },
+     "conditions": [
+      {
+       "id": "Encore une tentative ?-0",
+       "leftValue": "={{ $runIndex }}",
+       "rightValue": 1,
+       "operator": {
+        "type": "number",
+        "operation": "lt"
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "options": {}
+   }
+  },
+  {
+   "name": "Échec : alerte",
+   "type": "n8n-nodes-base.stopAndError",
+   "typeVersion": 1,
+   "position": [
+    1980,
+    220
+   ],
+   "parameters": {
+    "errorMessage": "={{ 'Veille « ' + $('Paramètres').item.json.sujet + ' » en échec après 2 tentatives. Job : https://huggingface.co/jobs/RomaneIA13/' + $json.id + ' — détail des étapes dans Supabase, table sl_veilles, id ' + $('Paramètres').item.json.veille_id }}"
+   }
+  }
+ ],
+ "connections": {
+  "Formulaire : nouvelle veille": {
+   "main": [
+    [
+     {
+      "node": "Paramètres",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Chaque lundi 7h": {
+   "main": [
+    [
+     {
+      "node": "Veille hebdo (sujet par défaut)",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Veille hebdo (sujet par défaut)": {
+   "main": [
+    [
+     {
+      "node": "Paramètres",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Paramètres": {
+   "main": [
+    [
+     {
+      "node": "Lancer le job Hugging Face",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Lancer le job Hugging Face": {
+   "main": [
+    [
+     {
+      "node": "Attendre 2 min",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Attendre 2 min": {
+   "main": [
+    [
+     {
+      "node": "État du job",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "État du job": {
+   "main": [
+    [
+     {
+      "node": "Terminé ?",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Terminé ?": {
+   "main": [
+    [
+     {
+      "node": "Réussi ?",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Attendre 2 min",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Réussi ?": {
+   "main": [
+    [
+     {
+      "node": "Veille terminée",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Encore une tentative ?",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Encore une tentative ?": {
+   "main": [
+    [
+     {
+      "node": "Lancer le job Hugging Face",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Échec : alerte",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  }
+ },
+ "settings": {
+  "executionOrder": "v1",
+  "timezone": "Europe/Paris"
+ }
+}

@@ -43,8 +43,12 @@ function Prisme() {
       if (q.get("sujet")) setSujet(q.get("sujet")!);
       if (q.get("pays")) setPays(q.get("pays")!);
       if (q.get("question")) setQuestion(q.get("question")!);
+      // ouverture directe d'un onglet depuis l'historique Social listening
+      if (q.get("onglet") === "alertes") ouvrirAlertes();
+      if (q.get("onglet") === "reseaux") ouvrirReseaux();
     }, 0);
     return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- lecture de l'URL une seule fois, à l'arrivée sur la page
   }, []);
   useEffect(() => {
     if (!busy) return;

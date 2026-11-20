@@ -80,7 +80,7 @@ function Market() {
         <>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <Kpi label={`Taille du marché ${data.years.cur ?? ""}`} value={revenue(size, "EUR")} sub={officialCur !== null ? `Circana · dont Top 50 SKU : ${revenue(top50Cur, "EUR")}` : "somme du Top 50 SKU Circana"} />
-            <Kpi label="Évolution sur un an" value={<Delta value={growthPct(sizePrev, size)} />} sub={`${revenue(sizePrev, "EUR")} en ${data.years.prev ?? "N-1"}`} />
+            <Kpi label="Évolution sur un an" value={<Delta value={growthPct(sizePrev, size)} />} sub={sizePrev ? `${revenue(sizePrev, "EUR")} en ${data.years.prev ?? "N-1"}` : "année précédente non importée"} />
             <Kpi label="Marques" value={brands.length} />
             <Kpi label="Produits" value={list.length} />
           </div>

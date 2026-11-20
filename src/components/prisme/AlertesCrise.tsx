@@ -5,8 +5,8 @@ import type { Alertes, Gravite } from "@/lib/alertes";
 
 const STYLE: Record<Gravite, { bande: string; badge: string; libelle: string }> = {
   critique: { bande: "bg-[#a9471f]", badge: "bg-[#a9471f] text-white", libelle: "Critique" },
-  "élevée": { bande: "bg-[#a9471f]", badge: "bg-[#a9471f] text-[#1b1411]", libelle: "Élevée" },
-  "à surveiller": { bande: "bg-[#8597b2]", badge: "bg-ground text-ink-soft", libelle: "À surveiller" },
+  "élevée": { bande: "bg-[#c98f55]", badge: "bg-[#7a4b2e] text-white", libelle: "Élevée" },
+  "à surveiller": { bande: "bg-[#9a8676]", badge: "bg-ground text-ink-soft", libelle: "À surveiller" },
 };
 const TYPE: Record<string, string> = { viral_negatif: "Contenu viral négatif", terme_sensible: "Termes sensibles", aspect_critique: "Aspect produit critiqué", compte_officiel: "Compte officiel" };
 
@@ -49,7 +49,7 @@ export function AlertesCrise({ a }: { a: Alertes }) {
             <i className={`absolute inset-y-0 left-0 w-1.5 ${STYLE[x.gravite].bande}`} aria-hidden />
             <div className="flex flex-wrap items-center gap-2">
               <span className={`rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold ${STYLE[x.gravite].badge}`}>{STYLE[x.gravite].libelle}</span>
-              <span className="rounded-full bg-ground px-2.5 py-0.5 text-[11.5px] font-medium text-ink-soft">{TYPE[x.type]}</span>
+              <span className="rounded-full bg-ground px-2.5 py-0.5 text-[11.5px] font-medium text-ink-soft">{TYPE[x.type] ?? x.type}</span>
               <span className="text-[12.5px] text-ink-faint">{x.marque}{x.date ? ` · ${new Date(x.date).toLocaleDateString("fr-FR")}` : ""}</span>
             </div>
             <h3 className="mt-2 flex items-start gap-2 text-lg font-semibold"><AlertTriangle size={17} className="mt-0.5 shrink-0 text-[#a9471f]" aria-hidden />{x.titre}</h3>

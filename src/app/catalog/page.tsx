@@ -81,7 +81,7 @@ function Catalog() {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Kpi label="Produits" value={list.length} sub={`sur ${data.catalog.length} au catalogue`} />
         <Kpi label="Teintes" value={list.reduce((a, p) => a + p.shadeCount, 0)} />
-        <Kpi label="En croissance" value={growing} sub={data.years.cur ? `${data.years.prev} → ${data.years.cur}` : "ventes non importées"} />
+        <Kpi label="En croissance" value={growing} sub={data.years.cur ? `${data.years.prev ?? "?"} → ${data.years.cur}` : "ventes non importées"} />
         <Kpi label="En déclin" value={declining} />
       </div>
       <FilterBar value={filters} onChange={setFilters} />

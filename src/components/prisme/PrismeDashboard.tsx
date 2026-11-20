@@ -27,7 +27,7 @@ function TitrePartie({ n: num, surtitre, children }: { n: string; surtitre: stri
 const n = (v: unknown) => (typeof v === "number" ? v : Number(v ?? 0) || 0);
 const compact = (v: number) => new Intl.NumberFormat("fr-FR", { notation: v >= 10000 ? "compact" : "standard", maximumFractionDigits: 1 }).format(v);
 const pct = (v: number) => `${new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 1 }).format(v)} %`;
-const TICK = { fontSize: 14, fill: "#4f5d73" };   // lisible à l'écran pendant l'oral
+const TICK = { fontSize: 15, fill: "#5e4f45" };   // lisible à l'écran pendant l'oral
 const TIP = { contentStyle: { borderRadius: 10, border: "1px solid #e6dccf", fontSize: 14 }, cursor: { fill: "rgb(27 20 17 / 0.05)" } };
 const PLATEFORME: Record<string, string> = { tiktok: "TikTok", instagram: "Instagram", youtube: "YouTube" };
 
@@ -188,7 +188,7 @@ function Sources({ rows, compact: petit = false }: { rows: Ligne[]; compact?: bo
       <div>
         <p className="mb-1 flex justify-between text-[12.5px] text-ink-faint"><span>{titre}</span><span>{compact(tot)}</span></p>
         <div className="flex h-3 overflow-hidden rounded-full bg-ground">
-          {rows.filter((r) => n(r[cle]) > 0).map((r) => <i key={String(r.platform)} title={`${PLATEFORME[String(r.platform)]} : ${Math.round((100 * n(r[cle])) / tot)} %`} style={{ width: `${(100 * n(r[cle])) / tot}%`, background: COULEUR_PF[String(r.platform)] ?? "#6f7b8e" }} />)}
+          {rows.filter((r) => n(r[cle]) > 0).map((r) => <i key={String(r.platform)} title={`${PLATEFORME[String(r.platform)]} : ${Math.round((100 * n(r[cle])) / tot)} %`} style={{ width: `${(100 * n(r[cle])) / tot}%`, background: COULEUR_PF[String(r.platform)] ?? "#9a8676" }} />)}
         </div>
         {!petit && <p className="mt-1 flex flex-wrap gap-x-3 text-xs text-ink-soft">{rows.map((r) => <span key={String(r.platform)}><i className="mr-1 inline-block h-2 w-2 rounded-sm" style={{ background: COULEUR_PF[String(r.platform)] }} />{PLATEFORME[String(r.platform)]} {Math.round((100 * n(r[cle])) / tot)} %</span>)}</p>}
       </div>
@@ -217,7 +217,7 @@ function Comparaison({ d }: { d: DashboardPrisme }) {
   return (
     <section className="rounded-[20px] border border-line bg-paper p-5">
       <h3 className={`${SERIF} text-[26px] font-semibold`}>{A} vs {B}</h3>
-      <p className="mb-4 mt-0.5 text-[13px] leading-snug text-ink-faint">Part de voix de chaque marque dans son pays (base 100 par pays) : comparable quel que soit le volume collecté. Lire chaque marque de gauche à droite : barre terracotta = France, barre brune = États-Unis. * = moins de 20 mentions dans au moins un pays, à interpréter avec prudence.</p>
+      <p className="mb-4 mt-0.5 text-[13px] leading-snug text-ink-faint">Part de voix de chaque marque dans son pays (base 100 par pays) : comparable quel que soit le volume collecté. Pour chaque marque : barre terracotta = {A}, barre brune = {B}. * = moins de 20 mentions dans au moins un pays, à interpréter avec prudence.</p>
       <div className="mb-5 grid grid-cols-2 gap-3">
         <div className="space-y-3 rounded-[14px] bg-gradient-to-br from-[#f4ebe1] to-paper p-4"><p className="text-[12.5px] font-semibold text-ink-faint">{A}</p><p className="text-[34px] font-semibold leading-none text-[#7a4b2e]">{pct(Math.round(pdvIci * 10) / 10)}</p><p className="text-[13px] text-ink-soft">de la conversation pour L&apos;Oréal</p></div>
         <div className="space-y-3 rounded-[14px] bg-gradient-to-br from-ground to-paper p-4"><p className="text-[12.5px] font-semibold text-ink-faint">{B}</p><p className="text-[34px] font-semibold leading-none text-[#1b1411]">{pct(c.pdv_loreal)}</p><p className="text-[13px] text-ink-soft">de la conversation pour L&apos;Oréal</p></div>
@@ -245,7 +245,6 @@ function Comparaison({ d }: { d: DashboardPrisme }) {
 const MOIS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."];
 const libMois = (m: string) => `${MOIS[Number(m.slice(5, 7)) - 1] ?? m} ${m.slice(2, 4)}`;
 
-/** Couleurs bien distinctes : L'Oréal en traits pleins orangés, concurrents en pointillés bleu nuit / prune. */
 // Palette terre (terracotta, caramel, cacao, taupe) : séparation daltonisme validée ; cacao et taupe sont peu saturés,
 // d'où l'encodage secondaire obligatoire ci-dessous et la légende.
 // Encodage secondaire : traits pleins pour L'Oréal, pointillés pour les concurrents (jamais la couleur seule).
@@ -253,7 +252,7 @@ const STYLE_LIGNE = (loreal: boolean, rang: number) => loreal
   ? { stroke: rang === 0 ? "#a9471f" : "#d9a35e", strokeDasharray: undefined }
   : { stroke: rang === 0 ? "#4a382c" : "#9a8676", strokeDasharray: "7 5" };
 const LEGENDE = { fontSize: 15, paddingTop: 10 };
-const TICK_ORAL = { fontSize: 14, fill: "#4f5d73" };
+const TICK_ORAL = { fontSize: 15, fill: "#5e4f45" };
 
 /** Évolution : part des mentions par mois (5 derniers mois bien fournis) et demande Google (6 mois, lissée). */
 function Evolution({ d }: { d: DashboardPrisme }) {
@@ -607,7 +606,21 @@ export function PrismeDashboard({ d, chargerProduit, chargerFocus }: { d: Dashbo
           <p className="text-[12.5px] font-semibold uppercase tracking-[0.28em]" style={{ color: "#e2c49a" }}>Prisme · {DRAPEAU[d.veille.pays] ?? d.veille.pays}</p>
           <p className={`${SERIF} mt-3 text-[clamp(40px,7vw,84px)] font-semibold uppercase leading-[0.92] tracking-[0.01em]`}>{d.veille.sujet}</p>
           <h2 className="mt-5 max-w-2xl text-[clamp(19px,2.2vw,24px)] font-medium leading-snug text-balance">{d.titre}</h2>
-          <p className="mt-3 max-w-2xl text-[16.5px] leading-relaxed" style={{ color: "#e9ddd1" }}>{d.agent.reponse}</p>
+          {/* Synthèse : les 4 chiffres clés calculés par le code, en points ; l'analyse rédigée par l'IA reste dépliable */}
+          <ul className="mt-5 grid max-w-3xl gap-2.5 sm:grid-cols-2">
+            {d.kpis.slice(0, 4).map((k) => (
+              <li key={k.id} className="rounded-[14px] border px-4 py-3" style={{ borderColor: "rgb(226 196 154 / 0.25)", background: "rgb(255 255 255 / 0.04)" }}>
+                <span className={`${SERIF} block text-[30px] font-semibold leading-none`} style={{ color: "#e2c49a" }}>
+                  {typeof k.valeur === "number" ? `${new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 1 }).format(k.valeur)}${k.unite ? ` ${k.unite}` : ""}` : k.valeur}
+                </span>
+                <span className="mt-1 block text-[15px] leading-snug" style={{ color: "#e9ddd1" }}>{k.label}{k.detail ? ` · ${k.detail}` : ""}</span>
+              </li>
+            ))}
+          </ul>
+          <details className="group mt-4 max-w-3xl">
+            <summary className="cursor-pointer select-none text-[15px] font-medium underline-offset-4 hover:underline" style={{ color: "#e2c49a" }}>Lire l&apos;analyse complète de Prisme</summary>
+            <p className="mt-2 text-[16px] leading-relaxed" style={{ color: "#e9ddd1" }}>{d.agent.reponse}</p>
+          </details>
           <p className="mt-6 text-[12.5px] uppercase tracking-[0.2em]" style={{ color: "#c8b4a2" }}>{compact(d.veille.videos)} vidéos · {compact(d.veille.commentaires)} commentaires · TikTok, Instagram, YouTube, Google</p>
         </div>
       </header>
@@ -618,7 +631,7 @@ export function PrismeDashboard({ d, chargerProduit, chargerFocus }: { d: Dashbo
         <div className="grid gap-4 lg:grid-cols-3">
           <CarteMacro icone={<Hash size={18} className="text-[#7a5a44]" aria-hidden />} titre="Hashtags les plus vus" mesure="Total des vues des vidéos qui utilisent le hashtag (génériques comme #fyp exclus)."
             lignes={D.hashtags.slice(0, 5).map((h) => ({ nom: String(h.hashtag), valeur: `${compact(n(h.vues))} vues`, detail: `${n(h.videos)} vidéos` }))} />
-          <CarteMacro icone={<ShoppingBag size={18} className="text-[#a9471f]" aria-hidden />} titre="Produits les plus cités" mesure="Classés par nombre de vidéos qui les citent, puis par vues. Orange : groupe L'Oréal. Cliquez pour la fiche."
+          <CarteMacro icone={<ShoppingBag size={18} className="text-[#a9471f]" aria-hidden />} titre="Produits les plus cités" mesure="Classés par nombre de vidéos qui les citent, puis par vues. Terracotta : groupe L'Oréal. Cliquez pour la fiche."
             lignes={D.produits.slice(0, 5).map((p) => ({ nom: String(p.produit), valeur: `${n(p.videos)} vidéo${n(p.videos) > 1 ? "s" : ""}`, detail: `${compact(n(p.vues))} vues`, accent: estGroupe(p.marque) }))} onClic={setPanneau} />
           <CarteMacro icone={<TrendingUp size={18} className="text-[#4a382c]" aria-hidden />} titre="Tendances qui montent" mesure="Recherches Google associées au sujet dont le volume a le plus augmenté sur 12 mois."
             lignes={tendances} />

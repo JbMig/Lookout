@@ -7,6 +7,9 @@ import { api, fmtDateTime } from "@/lib/client";
 import { Private } from "@/components/Session";
 import { Empty, PageHeader, PageSkeleton, btnSecondary } from "@/components/ui";
 import { PrismeDashboard } from "@/components/prisme/PrismeDashboard";
+import { AlertesCrise } from "@/components/prisme/AlertesCrise";
+import { ReseauxMarques } from "@/components/prisme/ReseauxMarques";
+import type { DashboardPrisme } from "@/lib/prisme-dashboard";
 import type { AnalyseComplete } from "@/lib/prisme-historique";
 
 /** Une analyse de l'historique : le dashboard Prisme tel qu'il a été produit lors de la recherche. */
@@ -28,7 +31,7 @@ function AnalyseView() {
     await api(`/api/social/${id}`, { method: "DELETE" });
     router.push("/social");
   }
-  const relancer = `/prisme?sujet=${encodeURIComponent(a.sujet)}${a.pays ? `&pays=${encodeURIComponent(a.pays)}` : ""}${a.question ? `&question=${encodeURIComponent(a.question)}` : ""}`;
+  const relancer = "_type" in a.resultat ? "/prisme" : `/prisme?sujet=${encodeURIComponent(a.sujet)}${a.pays ? `&pays=${encodeURIComponent(a.pays)}` : ""}${a.question ? `&question=${encodeURIComponent(a.question)}` : ""}`;
 
   return (
     <div className="w-full min-w-0 space-y-6 [contain:inline-size]">
@@ -50,7 +53,9 @@ function AnalyseView() {
           </div>
         }
       />
-      <PrismeDashboard d={a.resultat} />
+      {"_type" in a.resultat
+        ? (a.resultat._type === "alertes" ? <AlertesCrise a={a.resultat.donnees} /> : <ReseauxMarques r={a.resultat.donnees} />)
+        : <PrismeDashboard d={a.resultat as DashboardPrisme} />}
     </div>
   );
 }

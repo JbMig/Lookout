@@ -42,7 +42,7 @@ function Opportunities() {
             <option value="all">Toutes</option><option value="US">États-Unis</option><option value="EU">Europe</option><option value="FR">France</option>
           </select>
         </label>
-        <label className="grid gap-1 text-[12.5px] font-medium text-ink-soft">Score minimum : {minScore}
+        <label className="grid gap-1 text-[12.5px] font-medium text-ink-soft">Score minimum (sur 100) : {minScore}
           <input type="range" min={0} max={90} step={10} value={minScore} onChange={(e) => setMinScore(Number(e.target.value))} className="w-44 accent-night" />
         </label>
         <label className="mb-2 flex items-center gap-2 text-sm">

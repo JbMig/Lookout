@@ -13,7 +13,22 @@ Compte de démonstration (sans conséquence, données partagées) :
 
 ### Le Problème
 
-Dans l'industrie cosmétique, les données de marché existent déjà : les chiffres de vente viennent de **Circana** (ex-NPD), la référence du secteur. Mais Circana ne donne que les volumes et les prix pas les compositions, pas les teintes, pas le packaging. Pour avoir une vision complète, il faut ensuite aller chercher ces informations à la main sur des dizaines de sites (Sephora, Ulta, sites des marques…), dans plusieurs langues et devises, puis tout croiser. **Ce travail ingrat est systématiquement confié aux stagiaires** : plus de 130 heures par mois à compiler des tableurs, le tout pour un rendu souvent incomplet et déjà périmé.
+Dans l'industrie cosmétique, les données de marché existent déjà : les chiffres de vente viennent de **Circana** (ex-NPD), la référence du secteur. Mais Circana ne donne que les volumes et les prix pas les compositions, pas les teintes, pas le packaging. Pour avoir une vision complète, il faut ensuite aller chercher ces informations à la main sur des dizaines de sites (Sephora, Ulta, sites des marques…), dans plusieurs langues et devises, puis tout croiser. **Ce travail ingrat est systématiquement confié aux stagiaires** : environ 130 heures par mois à compiler des tableurs (voir le calcul ci-dessous), le tout pour un rendu souvent incomplet et déjà périmé.
+
+#### D'où viennent les 130 heures ?
+
+Estimation construite à partir du périmètre réel de Lookout et d'une mesure publique du secteur :
+
+| Élément | Valeur | Source |
+|---|---|---|
+| Fiches produits à compléter | **400** = top 50 SKU × 4 formats (liquide, compact, crème, stick) × 2 pays (US, FR) | Périmètre des imports Circana de Lookout |
+| Temps pour récupérer **la seule liste INCI** d'un produit à la main | **10 min** | Inference Beauty, cité par [Cosmetics Business](https://cosmeticsbusiness.com/e-commerce-regulations-call-for-greater-ingredient-transparency) (mesure du fournisseur) |
+| Temps pour une **fiche complète** (INCI + teintes et couleurs + prix local + packshot + packaging) | **~20 min** | Hypothèse de l'équipe : environ le double de l'INCI seule |
+| **Total par mise à jour** | 400 × 20 min ≈ **133 h**, soit ~130 h par mois si l'analyse est refaite chaque mois | Calcul |
+
+Pour le contexte, 58 % des professionnels de la veille concurrentielle citent la collecte d'informations dans les temps comme un obstacle fréquent ([Crayon, State of Competitive Intelligence 2024](https://crayon.co/hubfs/Algert/2024%20State%20of%20Competitive%20Intelligence/Competitive%20Intelligence%20Report%202024_PDF.pdf)).
+
+> Limite : les 20 min par fiche complète sont une estimation, pas une mesure. Le chiffre est à remplacer par un chronométrage réel dès qu'il est fait.
 
 ### La Solution
 

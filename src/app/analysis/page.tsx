@@ -86,7 +86,7 @@ function Analysis() {
         <ul className="divide-y divide-line text-sm">
           {data.analyses.map((a) => (
             <li key={a.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
-              <span>{fmtDate(a.createdAt)} · <span className="text-ink-soft">{a.type.replace(/_/g, " ")}</span>{a.error && <span className="text-bad"> · {a.error}</span>}</span>
+              <span>{fmtDate(a.createdAt)} · <span className="text-ink-soft">{({ growth_analysis: "analyse de croissance", opportunities: "opportunités", market: "marché" } as Record<string, string>)[a.type] ?? a.type.replace(/_/g, " ")}</span>{a.error && <span className="text-bad"> · {a.error}</span>}</span>
               <StatusBadge status={a.status} />
             </li>
           ))}

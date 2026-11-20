@@ -40,12 +40,12 @@ function Collecte() {
       <form onSubmit={lancer} className="grid gap-4 border-t border-line px-5 py-4 sm:grid-cols-[minmax(0,1fr)_110px] lg:grid-cols-[minmax(0,1fr)_110px_minmax(0,300px)_auto] lg:items-end">
         <Field label="Sujet"><input className={inputCls} value={sujet} onChange={(e) => setSujet(e.target.value)} placeholder="blush de luxe" required minLength={2} /></Field>
         <Field label="Pays">
-          <select className={inputCls} value={pays} onChange={(e) => setPays(e.target.value)}>{["FR", "US", "GB", "DE"].map((p) => <option key={p}>{p}</option>)}</select>
+          <select className={inputCls} value={pays} onChange={(e) => setPays(e.target.value)}>{[["FR", "France"], ["US", "États-Unis"], ["GB", "Royaume-Uni"], ["DE", "Allemagne"]].map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
         </Field>
         <div className="sm:col-span-2 lg:col-span-1">
           <Field label="Sources">
             <select className={`${inputCls} truncate`} value={mode} onChange={(e) => setMode(e.target.value)}>
-              <option value="economique">Économique : TikTok (HF), YouTube, Google</option>
+              <option value="economique">Économique : TikTok, YouTube, Google</option>
               <option value="complet">Complet : + TikTok et Instagram récents</option>
               <option value="secours">Données déjà collectées</option>
             </select>
@@ -114,7 +114,7 @@ function Historique() {
                     <button type="button" onClick={() => setConfirm(a.id)} aria-label={`Supprimer l'analyse « ${a.titre || a.sujet} »`} className="press shrink-0 rounded-[8px] p-1.5 text-ink-faint hover:bg-ground hover:text-bad"><Trash2 size={16} aria-hidden /></button>
                   )}
                 </div>
-                <Link href={`/social/${a.id}`} className="mt-3 grid grid-cols-2 gap-px overflow-hidden rounded-b-[14px] border-t border-line bg-line sm:grid-cols-4">
+                <Link href={`/social/${a.id}`} className={`mt-3 grid grid-cols-2 gap-px overflow-hidden rounded-b-[14px] border-t border-line bg-line ${["", "sm:grid-cols-1", "sm:grid-cols-2", "sm:grid-cols-3", "sm:grid-cols-4"][Math.min(4, a.kpis.length)]}`}>
                   {a.kpis.slice(0, 4).map((k) => (
                     <div key={k.id} className="bg-paper px-5 py-3">
                       <p className="truncate text-[15px] font-semibold tabular-nums">{nf(k.valeur, k.unite)}</p>

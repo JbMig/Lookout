@@ -39,7 +39,7 @@
 }
 
 html {
-  font-size: 106.25%; /* 17 px au lieu de 16 : tout le texte un peu plus grand (demande de lisibilité) */
+  font-size: 112.5%; /* 18 px au lieu de 16 : lisible en projection pendant l'oral */
   background: var(--color-ground);
   color: var(--color-ink);
   font-family: var(--font-sans);

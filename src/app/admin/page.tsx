@@ -350,8 +350,8 @@ function Users() {
   }, []);
   if (!users) return <Skeleton className="h-48" />;
   return (
-    <Card>
-      <table className="w-full text-left text-sm">
+    <Card className="overflow-x-auto">
+      <table className="w-full min-w-[480px] text-left text-sm">
         <thead className="text-ink-soft"><tr><th className="py-2 font-medium">Nom</th><th className="py-2 font-medium">E-mail</th><th className="py-2 font-medium">Inscrit le</th></tr></thead>
         <tbody>
           {users.map((u) => (

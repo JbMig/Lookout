@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ArrowUpRight, ChevronDown, Hash, Lightbulb, MessageCircleQuestion, Play, ShoppingBag, ThumbsDown, TrendingUp, X } from "lucide-react";
 import { Skeleton } from "@/components/ui";
 // police de titres embarquée dans le site (licence OFL, aucune requête vers un service externe)
@@ -217,7 +217,7 @@ function Comparaison({ d }: { d: DashboardPrisme }) {
   return (
     <section className="rounded-[20px] border border-line bg-paper p-5">
       <h3 className={`${SERIF} text-[26px] font-semibold`}>{A} vs {B}</h3>
-      <p className="mb-4 mt-0.5 text-[13px] leading-snug text-ink-faint">Part de voix calculée au sein de chaque marché (base 100 par marché), comparable quel que soit le volume collecté. Barres atténuées : moins de 20 mentions, significativité limitée.</p>
+      <p className="mb-4 mt-0.5 text-[13px] leading-snug text-ink-faint">Part de voix de chaque marque dans son pays (base 100 par pays) : comparable quel que soit le volume collecté. Lire chaque marque de gauche à droite : barre terracotta = France, barre brune = États-Unis. * = moins de 20 mentions dans au moins un pays, à interpréter avec prudence.</p>
       <div className="mb-5 grid grid-cols-2 gap-3">
         <div className="space-y-3 rounded-[14px] bg-gradient-to-br from-[#f4ebe1] to-paper p-4"><p className="text-[12.5px] font-semibold text-ink-faint">{A}</p><p className="text-[34px] font-semibold leading-none text-[#7a4b2e]">{pct(Math.round(pdvIci * 10) / 10)}</p><p className="text-[13px] text-ink-soft">de la conversation pour L&apos;Oréal</p></div>
         <div className="space-y-3 rounded-[14px] bg-gradient-to-br from-ground to-paper p-4"><p className="text-[12.5px] font-semibold text-ink-faint">{B}</p><p className="text-[34px] font-semibold leading-none text-[#1b1411]">{pct(c.pdv_loreal)}</p><p className="text-[13px] text-ink-soft">de la conversation pour L&apos;Oréal</p></div>
@@ -226,10 +226,11 @@ function Comparaison({ d }: { d: DashboardPrisme }) {
         <BarChart data={data} layout="vertical" margin={{ left: 4, right: 16 }} barGap={2}>
           <CartesianGrid stroke="#efe7de" horizontal={false} />
           <XAxis type="number" tick={TICK} unit=" %" />
-          <YAxis type="category" dataKey="marque" tick={TICK} width={130} />
-          <Tooltip {...TIP} formatter={(v, k) => [pct(Number(v)), k === "ici" ? A : B]} />
-          <Bar isAnimationActive={false} dataKey="ici" name={A} fill="#a9471f" radius={[0, 4, 4, 0]}>{data.map((x, i) => <Cell key={i} fillOpacity={x.fi ? 0.35 : 1} />)}</Bar>
-          <Bar isAnimationActive={false} dataKey="la" name={B} fill="#4a382c" radius={[0, 4, 4, 0]}>{data.map((x, i) => <Cell key={i} fillOpacity={x.fl ? 0.35 : 1} />)}</Bar>
+          <YAxis type="category" dataKey="marque" tick={TICK} width={140} tickFormatter={(m) => (data.find((x) => x.marque === m && (x.fi || x.fl)) ? `${m} *` : String(m))} />
+          {/* l'info-bulle se repère au champ (dataKey), pas au nom affiché : sinon les deux barres portent le même pays */}
+          <Tooltip {...TIP} formatter={(v, _n, item) => [pct(Number(v)), (item as { dataKey?: string }).dataKey === "ici" ? A : B]} />
+          <Bar isAnimationActive={false} dataKey="ici" name={A} fill="#a9471f" radius={[0, 4, 4, 0]} />
+          <Bar isAnimationActive={false} dataKey="la" name={B} fill="#4a382c" radius={[0, 4, 4, 0]} />
         </BarChart>
       </ResponsiveContainer>
       <p className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[13.5px] text-ink-soft"><span className="whitespace-nowrap"><i className="mr-1 inline-block h-2.5 w-2.5 rounded-sm bg-[#a9471f]" />{A}</span><span className="whitespace-nowrap"><i className="mr-1 inline-block h-2.5 w-2.5 rounded-sm bg-[#1b1411]" />{B}</span><span>part de voix de chaque marque dans son pays</span></p>

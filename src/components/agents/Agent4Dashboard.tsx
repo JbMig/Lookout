@@ -95,9 +95,9 @@ export function Agent4Dashboard({ data }: { data: unknown }) {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-2 text-sm text-ink-soft">
         {r.meta.category && <Pill tone="night">{r.meta.category}</Pill>}
-        {r.meta.zone && <Pill>Zone : {r.meta.zone}</Pill>}
+        {r.meta.zone && <Pill>Zone : {({ us: "États-Unis", fr: "France", eu: "Europe" } as Record<string, string>)[String(r.meta.zone).toLowerCase()] ?? r.meta.zone}</Pill>}
         {r.meta.period && <Pill>{r.meta.period}</Pill>}
-        {r.meta.generated_at && <span>Généré le {r.meta.generated_at}</span>}
+        {r.meta.generated_at && <span>Généré le {Number.isNaN(Date.parse(r.meta.generated_at)) ? r.meta.generated_at : new Date(r.meta.generated_at).toLocaleDateString("fr-FR")}</span>}
         {r.meta.sources.length > 0 && <span className="text-ink-faint">Sources : {r.meta.sources.join(", ")}</span>}
       </div>
 

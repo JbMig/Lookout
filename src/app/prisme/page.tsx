@@ -12,7 +12,7 @@ import type { Alertes } from "@/lib/alertes";
 import type { DashboardPrisme } from "@/lib/prisme-dashboard";
 import type { Reseaux } from "@/lib/reseaux";
 
-const ETAPES = ["Recherche des données collectées…", "Lecture des scores par marque…", "Ce que disent les commentaires…", "Hashtags, formats, recherche Google…", "Choix des graphiques…", "Rédaction de l'analyse…"];
+const ETAPES = ["Recherche des données collectées…", "Lecture des marques, produits et commentaires…", "Analyse en cours…"];
 
 function Prisme() {
   const [sujet, setSujet] = useState("");
@@ -68,6 +68,7 @@ function Prisme() {
   return (
     <div className="w-full min-w-0 space-y-6 [contain:inline-size]">
       <PageHeader title="Prisme" meta={<span>L&apos;agent analyste du social listening : tapez ce que vous cherchez, il construit le dashboard. Chaque analyse est gardée dans Social listening.</span>} />
+      {error && <ErrorText>{error}</ErrorText>}
       <div className="flex max-w-full overflow-x-auto rounded-full border border-line bg-paper p-1 sm:inline-flex" role="tablist">
         <button role="tab" aria-selected={onglet === "sujet"} onClick={() => setOnglet("sujet")} className={`press shrink-0 whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium ${onglet === "sujet" ? "bg-[#1b1411] text-white" : "text-ink-soft"}`}>Analyse d&apos;un sujet</button>
         <button role="tab" aria-selected={onglet === "alertes"} onClick={ouvrirAlertes} className={`press shrink-0 whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium ${onglet === "alertes" ? "bg-[#1b1411] text-white" : "text-ink-soft"}`}>Alertes</button>
@@ -100,7 +101,6 @@ function Prisme() {
           </div>
         )}
       </form>
-      {error && <ErrorText>{error}</ErrorText>}
       {busy && (
         <div className="space-y-4" aria-live="polite">
           <div className="flex items-center gap-3 rounded-[14px] bg-[#1b1411] px-5 py-4 text-white">

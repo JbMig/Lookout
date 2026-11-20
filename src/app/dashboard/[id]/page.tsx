@@ -41,8 +41,9 @@ function Dashboard() {
     const load = () => api<DashboardMeta>(`/api/dashboards/${id}`).then(setMeta).catch((e) => setError(e.message));
     void load();
     if (!waiting) return;
-    // L'agent Holo écrit le rapport quand il a fini : la page se recharge toute seule.
-    const t = setInterval(load, 15_000);
+    // L'agent Holo écrit le rapport quand il a fini : la page se recharge toute seule, au plus 10 minutes.
+    let essais = 0;
+    const t = setInterval(() => { if (++essais > 40) { clearInterval(t); setError("Le dashboard est toujours en préparation. Revenez dans quelques minutes."); return; } void load(); }, 15_000);
     return () => clearInterval(t);
   }, [id, waiting]);
   if (error) return <Empty title="Dashboard introuvable">{error}</Empty>;

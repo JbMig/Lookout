@@ -372,7 +372,7 @@ export function ReportView({ bundle }: { bundle: Bundle }) {
             <label className="relative block">
               <span className="sr-only">Rechercher</span>
               <Search size={15} className="pointer-events-none absolute left-3 top-[11px] text-ink-faint" aria-hidden />
-              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Produit, ingrédient…" className={`${controlCls} w-56 pl-9`} />
+              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Produit, ingrédient…" className={`${controlCls} w-full pl-9 sm:w-56`} />
             </label>
             <select aria-label="Zone" value={zone} onChange={(e) => setZone(e.target.value as "all" | Zone)} className={`${controlCls}`}>
               <option value="all">Toutes les zones</option><option value="US">{ZONE.US}</option><option value="EU">{ZONE.EU}</option>

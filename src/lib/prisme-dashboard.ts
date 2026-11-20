@@ -56,15 +56,21 @@ export async function sujetsDisponibles() {
   return [...new Set((data ?? []).map((d) => String(d.sujet).toLowerCase().trim()))];
 }
 
-async function trouverVeille(sujet: string, pays?: string) {
+/** Mots qui ne désignent pas le produit (« luxe », « haut de gamme »…) : ils ne suffisent pas à dire que deux veilles parlent du même sujet. */
+const MOTS_VAGUES = new Set(["luxe", "haut", "gamme", "premium", "prestige", "best", "meilleur", "meilleurs", "pour", "avec", "dans", "l'oréal", "loreal"]);
+
+async function trouverVeille(sujet: string, pays?: string, strict = false) {
   const mots = sujet.toLowerCase().split(/\s+/).filter((m) => m.length >= 4);
+  const cles = mots.filter((m) => !MOTS_VAGUES.has(m));
   const { data } = await db().from("sl_veilles").select("id, sujet, pays, stats, started_at").in("statut", ["termine", "partiel"])
     .order("started_at", { ascending: false }).limit(100);
   const candidates = (data ?? []).filter((v) => !pays || v.pays === pays).map((v) => {
     const s = String(v.sujet).toLowerCase();
     const score = (s === sujet.toLowerCase() ? 100 : mots.filter((m) => s.includes(m)).length * 10) + (String(v.id).startsWith("consolide") ? 1000 : 0);
     return { ...v, score, videos: n((v.stats as Ligne | null)?.videos) };
-  }).filter((v) => v.score > 0);
+  })
+    // strict (comparaison entre pays) : la veille doit porter sur le même produit, donc contenir tous les mots qui le désignent
+    .filter((v) => v.score > 0 && (!strict || cles.every((m) => String(v.sujet).toLowerCase().includes(m))));
   if (!candidates.length) return null;
   // la plus pertinente, puis la plus riche ; on écarte les veilles sans données exploitables pour les graphiques
   candidates.sort((a, b) => b.score - a.score || b.videos - a.videos);
@@ -263,7 +269,7 @@ export async function dashboardPrisme(sujet: string, question?: string, pays = "
   // comparaison : avec les États-Unis depuis la France ou l'Europe ; depuis les États-Unis, avec l'Europe (sinon la France)
   const candidats = v.pays === "US" ? ["EU", "FR"] : ["US"];
   let autre = null;
-  for (const c of candidats) { autre = await trouverVeille(sujet, c); if (autre) break; }
+  for (const c of candidats) { autre = await trouverVeille(v.sujet, c, true); if (autre) break; }
   let comparaison: DashboardPrisme["comparaison"] = null;
   if (autre) {
     const a = autre.meilleure;
